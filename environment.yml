@@ -1,0 +1,13 @@
+name: stackfg_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pandas=1.3.5
+  - numpy=1.21.6
+  - scikit-learn=1.0.2
+  - joblib=1.1.0
+  - xgboost=1.5.0
+  - tensorflow=2.8.0
+  - pip
