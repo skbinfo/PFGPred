@@ -2,6 +2,7 @@ name: stackfg_env
 channels:
   - conda-forge
   - defaults
+  - bioconda
 dependencies:
   - python
   - pandas
