@@ -1,0 +1,16 @@
+genome_lib_dir: "path/to/ctat_library"
+gtf_file: "path/to/.gtf"
+fasta_file: "path/to/_genomic.fna"
+
+
+# ⚠️ IMPORTANT: Update these paths for your species before running the pipeline
+# - genome_lib_dir: points to the pre-built CTAT resource library for your species
+# - gtf_file: the reference genome annotation (.gtf file)
+# - fasta_file: the reference genome sequence (.fa file)
+
+# Notes for the user:
+# - Ensure the GTF and FASTA files are from the SAME genome build/version
+# - Paths can be relative or absolute, but must be accessible when running
+# - If working on multiple species, create a separate config file for each
+# - Double-check that the CTAT library corresponds to the correct reference
+# - Large FASTA and GTF files should be indexed (samtools faidx, gtf indexing if required)
