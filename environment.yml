@@ -4,7 +4,7 @@ channels:
   - defaults
   - bioconda
 dependencies:
-  - python
+  - python==3.12.12
   - pandas
   - numpy
   - scikit-learn
