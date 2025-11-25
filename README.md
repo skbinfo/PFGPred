@@ -82,9 +82,12 @@ python ft.py \
 ```
 
 This step:
-- ***Processes outputs from fusion callers (Default: STAR-Fusion)***
--***Extracts RNA-Seq based features for each fusion transcript***
--***Generates a feature table compatible with the model***
+
+- **Processes outputs from fusion callers (Default: STAR-Fusion)**
+  
+-**Extracts RNA-Seq based features for each fusion transcript**
+
+-**Generates a feature table compatible with the model**
 
 
 6. **Run the Prediction Model**
