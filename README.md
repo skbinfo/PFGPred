@@ -23,8 +23,14 @@ PFGPred thus provides an end-to-end, accurate, and plant-specific framework for 
 1. **Clone the repository**:
 ```bash
 git clone
+```
+2. **Create Environment**:
+```bash
 cd PFGPred
 chmod +x setup.sh
 ./setup.sh
+```
+3. **Activate Environment**:
+```bash
 conda activate PFGPred_env
 ```
