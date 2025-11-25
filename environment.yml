@@ -1,3 +1,4 @@
+name: PFGPred
 channels:
   - conda-forge
   - defaults
