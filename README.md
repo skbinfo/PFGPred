@@ -83,7 +83,7 @@ python ft.py \
 
 This step:
 
-- **Processes outputs from fusion callers (Default: STAR-Fusion)**
+-**Processes outputs from fusion callers (Default: STAR-Fusion)**
   
 -**Extracts RNA-Seq based features for each fusion transcript**
 
