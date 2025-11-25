@@ -22,7 +22,7 @@ PFGPred thus provides an end-to-end, accurate, and plant-specific framework for 
 # Installation
 1. **Clone the repository**:
 ```bash
-git clone
+git clone https://github.com/skbinfo/PFGPred.git
 ```
 2. **Create Environment**:
 ```bash
