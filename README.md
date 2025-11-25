@@ -10,9 +10,13 @@ It integrates conventional fusion detection tools, a feature extraction framewor
 PFGPred thus provides an end-to-end, accurate, and plant-specific framework for fusion gene discovery without the need for validation on WGS data.
 
 **Key features of PFGPred:**
+
 -**Integrating RNA-Seq fusion predictions with machine learning**
+
 -**Trained on fusion events validated on WGS datasets**
+
 -**Supports any RNA-Seq fusion caller**
+
 -**Allows species-specific retraining**
 
 # Installation
