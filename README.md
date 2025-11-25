@@ -120,14 +120,14 @@ Prepare the fusion caller output in the following format. If any field is missin
 
 | Sample_ID | #FusionName | 5_geneid | 3_geneid | FFPM | CDS_LEFT_ID | CDS_RIGHT_ID | Splice_Pattern | Chromosome1 | LeftBreakpoint | LeftStrand | Chromosome2 | RightBreakpoint | RightStrand | Splice_Site | Total_Count_(SC+RC) | Splice_Pattern_Class |
 | :-------- | :---------- | :------- | :------- | :---- | :----------- | :------------ | :-------------- | :----------- | :-------------- | :---------- | :----------- | :--------------- | :----------- | :----------- | :-------------------- | :--------------------- |
-| ERR1588794 | AT2G47640->AT4G18230 | AT2G47640 | AT4G18230 | 2.1745 | . | . | . | 2 | 19537529 | #ERROR! | 4 | 10081731 | - | GT-AG | 18 | Canonical |
-| ERR1588794 | AT2G37600->AT5G02450 | AT2G37600 | AT5G02450 | 2.1746 | transcript:AT2G37600.1 | transcript:AT5G02450.1 | INFRAME | 2 | 15774593 | - | 5 | 534358 | #ERROR! | GT-AG | 18 | Canonical |
-| ERR1588794 | AT3G23050->AT2G22670 | AT3G23050 | AT2G22670 | 0.2416 | transcript:AT3G23050.1 | transcript:AT2G22670.1 | INFRAME | 3 | 8196210 | #ERROR! | 2 | 9638275 | #ERROR! | GT-AG | 2 | Canonical |
-| SRR3458666 | AT3G53870->AT5G35530 | AT3G53870 | AT5G35530 | 1.5013 | transcript:AT3G53870.1 | transcript:AT5G35530.1 | INFRAME | 3 | 19952063 | #ERROR! | 5 | 13710916 | - | AT-AC | 6 | Canonical |
-| SRR3458666 | AT4G27040->AT4G27080 | AT4G27040 | AT4G27080 | 0.7507 | transcript:AT4G27040.1 | transcript:AT4G27080.1 | INFRAME | 4 | 13573491 | - | 4 | 13591228 | #ERROR! | GT-AG | 3 | Canonical |
-| SRR3458666 | AT2G24060->AT1G56350 | AT2G24060 | AT1G56350 | 0.7507 | transcript:AT2G24060.1 | transcript:AT1G56350.1 | INFRAME | 2 | 10230006 | #ERROR! | 1 | 21097040 | #ERROR! | AT-AG | 3 | Non-Canonical |
+| ERR1588794 | AT2G47640->AT4G18230 | AT2G47640 | AT4G18230 | 2.1745 | . | . | . | 2 | 19537529 | + | 4 | 10081731 | - | GT-AG | 18 | Canonical |
+| ERR1588794 | AT2G37600->AT5G02450 | AT2G37600 | AT5G02450 | 2.1746 | transcript:AT2G37600.1 | transcript:AT5G02450.1 | INFRAME | 2 | 15774593 | - | 5 | 534358 | + | GT-AG | 18 | Canonical |
+| ERR1588794 | AT3G23050->AT2G22670 | AT3G23050 | AT2G22670 | 0.2416 | transcript:AT3G23050.1 | transcript:AT2G22670.1 | INFRAME | 3 | 8196210 | + | 2 | 9638275 | + | GT-AG | 2 | Canonical |
+| SRR3458666 | AT3G53870->AT5G35530 | AT3G53870 | AT5G35530 | 1.5013 | transcript:AT3G53870.1 | transcript:AT5G35530.1 | INFRAME | 3 | 19952063 | + | 5 | 13710916 | - | AT-AC | 6 | Canonical |
+| SRR3458666 | AT4G27040->AT4G27080 | AT4G27040 | AT4G27080 | 0.7507 | transcript:AT4G27040.1 | transcript:AT4G27080.1 | INFRAME | 4 | 13573491 | - | 4 | 13591228 | + | GT-AG | 3 | Canonical |
+| SRR3458666 | AT2G24060->AT1G56350 | AT2G24060 | AT1G56350 | 0.7507 | transcript:AT2G24060.1 | transcript:AT1G56350.1 | INFRAME | 2 | 10230006 | + | 1 | 21097040 | + | AT-AG | 3 | Non-Canonical |
 | SRR3458666 | AT1G60800->AT1G04880 | AT1G60800 | AT1G04880 | 0.7507 | . | . | . | 1 | 22385933 | - | 1 | 1378266 | - | GT-AG | 3 | Canonical |
-| SRR3458666 | AT1G71830->AT2G13790 | AT1G71830 | AT2G13790 | 0.5004 | transcript:AT1G71830.1 | transcript:AT2G13790.1 | FRAMESHIFT | 1 | 27019380 | #ERROR! | 2 | 5743213 | #ERROR! | GT-AG | 2 | Canonical |
+| SRR3458666 | AT1G71830->AT2G13790 | AT1G71830 | AT2G13790 | 0.5004 | transcript:AT1G71830.1 | transcript:AT2G13790.1 | FRAMESHIFT | 1 | 27019380 | + | 2 | 5743213 | + | GT-AG | 2 | Canonical |
 
 
 
