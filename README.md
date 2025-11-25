@@ -129,3 +129,68 @@ Prepare the fusion caller output in the following format. If any field is missin
 | SRR3458666 | AT1G60800->AT1G04880 | AT1G60800 | AT1G04880 | 0.7507 | . | . | . | 1 | 22385933 | - | 1 | 1378266 | - | GT-AG | 3 | Canonical |
 | SRR3458666 | AT1G71830->AT2G13790 | AT1G71830 | AT2G13790 | 0.5004 | transcript:AT1G71830.1 | transcript:AT2G13790.1 | FRAMESHIFT | 1 | 27019380 | #ERROR! | 2 | 5743213 | #ERROR! | GT-AG | 2 | Canonical |
 
+
+
+2. **To construct a PFGPred-compatible feature table from your fusion caller outputs, follow the steps below:**
+   
+-**Create an output directory named Fusion_output.** 
+-**Copy your fusion caller output into the Fusion_output directory and rename the file to 1_initial_merged_predictions.tsv**
+-**Run the feature extraction script:**
+```bash
+ python3 ft.py \
+    --start step2 \
+   --gtf path/to/annotation.gtf
+```
+
+3. **Run the Prediction Model**
+
+Then upload the generated feature table **(fts_features.csv)** to the **PFGPred Web Server (http://223.31.159.15/PFGPred/predict.php)** or use the following command to classify fusion transcripts using the PFGPred model:
+```bash
+
+
+```
+
+# Model Retraining Workflow
+
+If you want to retrain PFGPred for a new plant species:
+
+1. **Fusion Identification & Feature Extraction (for training)**
+   
+Run the standard extraction step:
+```bash
+python ft.py \
+ --start step1 \
+--config config.yaml \
+--gtf path/to/annotation.gtf
+```
+This step will generate the fts_features.csv file.
+
+
+2. **Validation of Fusion Transcripts Using WGS**
+
+To validate fusion breakpoints at the DNA level, run:
+
+** Use the published WGS fusion pipeline:**
+```bash
+https://github.com/VolundurH/wgs_fusion_pipeline
+```
+
+This step produces a set of WGS-validated (true) fusion genes. This step will generate new_fusion_search_table.txt and fusion_summary_table_breakpoint_supporting_reads.txt files.
+
+
+3. **Generate Positive and Negative Datasets**
+
+To construct the training dataset, run:
+
+```bash
+python dataset.py \
+ --summary fusion_summary_table_breakpoint_supporting_reads.txt\
+ --annot new_fusion_search_table.txt\
+ --feat features.csv/
+```
+
+This script generates RNA-Seq fusions supported by WGS as positive (post.tsv) and unsupported as negative (neg.tsv).
+
+4. **Train Your Own Model**
+
+Upload the positive and negative datasets to the web server ***(http://223.31.159.15/PFGPred/train.php)*** to train a custom species-specific model.
