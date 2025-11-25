@@ -4,6 +4,7 @@ It integrates conventional fusion detection tools, a feature extraction framewor
 
 # PFGPred operates in two major steps:
 **1. Fusion Detection & Feature Extraction:** RNA-Seq data are processed using conventional fusion callers to detect candidate fusion transcripts. For each candidate, a set of features derived from RNA-Seq and genomic annotation was extracted.
+
 **2.Classification of True vs. False Fusions:** Extracted features were evaluated using a plant-optimized stacked ensemble model (XGBoost, Random Forest, and LSTM with a logistic regression meta-classifier) to distinguish true fusion transcripts from false positives. This ensures the identification of biologically relevant, high-confidence fusion genes.
 
 PFGPred thus provides an end-to-end, accurate, and plant-specific framework for fusion gene discovery without the need for validation on WGS data.
