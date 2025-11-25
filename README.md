@@ -37,6 +37,7 @@ conda activate PFGPred_env
 
 # Running the Pipeline
 1. **Prepare the Configuration File**
+
 Edit config.yaml and provide paths to the required reference files:
 ```bash
 Reference genome (.fasta)
@@ -45,6 +46,7 @@ CTAT resource library (required for STAR-Fusion)
 ```
 
 2. **How to Prepare a CTAT Genome Library**
+
 PFGPred uses STAR-Fusion as its default fusion detection tool, which requires a CTAT Genome Resource Library built for your species.
 You can prepare this library by following the official CTAT tutorial:
 
@@ -53,6 +55,7 @@ You can prepare this library by following the official CTAT tutorial:
 
 
 3. **Specify Samples**
+
 List the sample identifiers in one of the following files based on your sample type:
 ```
 single.txt for single-end reads
@@ -68,6 +71,7 @@ mkdir Fusion_output
 
 
 5. **Organize Input Files**
+
 Place all input FASTQ files into the directory where ft.py is located.
 Run Feature Extraction
 ```bash
@@ -76,6 +80,7 @@ python ft.py \
 --config config.yaml \
 –gtf path/to/annotation.gtf
 ```
+
 This step:
 - ***Processes outputs from fusion callers (Default: STAR-Fusion)***
 -***Extracts RNA-Seq based features for each fusion transcript***
