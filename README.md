@@ -43,12 +43,15 @@ Reference genome (.fasta)
 Genome annotation (.gtf)
 CTAT resource library (required for STAR-Fusion)
 ```
+
 2. **How to Prepare a CTAT Genome Library**
 PFGPred uses STAR-Fusion as its default fusion detection tool, which requires a CTAT Genome Resource Library built for your species.
 You can prepare this library by following the official CTAT tutorial:
 
 **🔗 CTAT Genome Lib Preparation Guide**
  https://github.com/STAR-Fusion/STAR-Fusion-Tutorial/wiki
+
+
 3. **Specify Samples**
 List the sample identifiers in one of the following files based on your sample type:
 ```
@@ -56,10 +59,14 @@ single.txt for single-end reads
 paired.txt for paired-end reads
 ```
 Each line should contain one sample ID (matching FASTQ file names).
+
+
 4. **Create Output Directory**
 ```bash
 mkdir Fusion_output
 ```
+
+
 5. **Organize Input Files**
 Place all input FASTQ files into the directory where ft.py is located.
 Run Feature Extraction
@@ -74,13 +81,20 @@ This step:
 -***Extracts RNA-Seq based features for each fusion transcript***
 -***Generates a feature table compatible with the model***
 
+
 6. **Run the Prediction Model**
 To classify fusions using the pretrained stacked ensemble model:
 ```bash
 
 ```
 ***Or upload the generated feature table to the PFGPred Web Server (http://223.31.159.15/PFGPred/predict.php) if the number of entries in the file is less than 10000.***
+
+
 The output will provide:
 1.**probability scores**
+
+
 2.**classification labels**
+
+
 3.**high-confidence filtered fusion list (Default threshold 0.9)**
