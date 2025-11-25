@@ -264,7 +264,7 @@ if dataframes:
     merged_df = merged_df.drop(['JunctionReadCount', 'SpanningFragCount'], axis=1)
 
     if 'Splice_Site' in merged_df.columns:
-    merged_df['Splice_Site'] = merged_df['Splice_Site'].astype(str).str.upper()
+        merged_df['Splice_Site'] = merged_df['Splice_Site'].astype(str).str.upper()
     
     # MODIFIED: Update splice pattern classification based on new rules
     canonical_sites = {'GT-AG', 'GC-AG', 'AT-AC'}
