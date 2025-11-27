@@ -1,679 +1,699 @@
+#!/usr/bin/env python3
+"""
+fusion_pipeline_resume.py
+
+Usage examples:
+  # Resume from 1_initial_merged_predictions.tsv (PART 3 onward)
+  python3 fusion_pipeline_resume.py --start step2 --merged 1_initial_merged_predictions.tsv --gtf path/to/annotation.gtf
+
+  # Run full pipeline (requires config.yaml, single.txt, paired.txt, FASTQ files)
+  python3 fusion_pipeline_resume.py --start step1 --config config.yaml
+"""
+import argparse
 import os
-import requests
-import json
-import pandas as pd
 import re
 import shutil
 import subprocess
 import csv
 import yaml
+import pandas as pd
+from typing import Dict, List, Any
 
-# Load config.yaml
-with open("config.yaml") as f:
-    config = yaml.safe_load(f)
+# -------------------------
+# ARGPARSE
+# -------------------------
+def parse_args():
+    p = argparse.ArgumentParser(description="Fusion pipeline (resumable).")
+    p.add_argument("--start", choices=["step1","step2"], default="step1",
+                   help="Which step to start from. step1 runs everything (including STAR-Fusion). "
+                        "step2 runs GTF processing & downstream.")
+    p.add_argument("--config", help="Path to config.yaml (required for step1)")
+    p.add_argument("--merged", help="Path to 1_initial_merged_predictions.tsv (required for step3)")
+    p.add_argument("--gtf", help="Path to genome GTF (required for step1/2)")
+    p.add_argument("--outdir", default="Fusion_output", help="Output directory")
+    return p.parse_args()
 
-fasta_file = config["fasta_file"]
-gtf_file = config["gtf_file"] 
-GENOME_LIB_DIR = config["genome_lib_dir"]
+args = parse_args()
 
-# Input files
-single_file = "single.txt"
-paired_file = "paired.txt"
-output_file = "Fusion_output/reads.tsv"
+# -------------------------
+# SIMPLE HELPERS
+# -------------------------
+def safe_read_tsv(path, **kwargs):
+    return pd.read_csv(path, sep=kwargs.pop("sep", "\t"), dtype=str, **kwargs)
 
-# Ensure output directory exists
-os.makedirs("Fusion_output", exist_ok=True)
+def ensure_dir(d):
+    os.makedirs(d, exist_ok=True)
 
-# Function to extract read length using FASTQ format logic
-def get_read_length(fq_file):
-    try:
-        with open(fq_file, "r") as f:
-            for i, line in enumerate(f):
-                if i % 4 == 1:  # 2nd line of first FASTQ entry
-                    return len(line.strip())
-    except FileNotFoundError:
-        return "File not found"
+# -------------------------
+# STEP 1: (Optional) STAR-Fusion and generate 1_initial_merged_predictions.tsv
+# This implements the original behavior. If you already have merged file, start at step2.
+# -------------------------
+def step1_run_star_and_merge(config_path: str, out_root: str):
+    """
+    Runs read-length extraction, optionally runs STAR-Fusion if FASTQs present,
+    collects outputs, and builds 1_initial_merged_predictions.tsv in out_root.
+    NOTE: Running STAR-Fusion requires STAR-Fusion binary in PATH.
+    """
+    with open(config_path) as fh:
+        cfg = yaml.safe_load(fh)
 
-# ADDED: Helper function to find read files with flexible extensions
-def find_read_file(patterns):
-    """Checks a list of patterns and returns the first file that exists."""
-    for pat in patterns:
-        if os.path.isfile(pat):
-            return pat
-    return None
+    fasta_file = cfg.get("fasta_file")
+    gtf_file = cfg.get("gtf_file")
+    GENOME_LIB_DIR = cfg.get("genome_lib_dir")
+    single_file = cfg.get("single_list", "single.txt")
+    paired_file = cfg.get("paired_list", "paired.txt")
 
-# Collect results
-results = []
+    ensure_dir(out_root)
+    reads_tsv = os.path.join(out_root, "reads.tsv")
 
-# Process single-end
-with open(single_file, "r") as f:
-    for line in f:
-        sample = line.strip()
-        # MODIFIED: Check for multiple file extensions
-        patterns = [f"{sample}_val.fq", f"{sample}.fq", f"{sample}.fa", f"{sample}.fasta"]
-        fq_file = find_read_file(patterns)
-        
-        if fq_file:
-            read_len = get_read_length(fq_file)
-        else:
-            read_len = "File not found"
-        results.append((read_len, sample))
+    # helper functions
+    def get_read_length(fq_file):
+        try:
+            with open(fq_file, "r") as f:
+                for i, line in enumerate(f):
+                    if i % 4 == 1:
+                        return len(line.strip())
+        except Exception:
+            return "NF"
 
-# Process paired-end
-with open(paired_file, "r") as f:
-    for line in f:
-        sample = line.strip()
-        # MODIFIED: Check for multiple file extensions for R1
-        patterns = [
-            f"{sample}_1_val_1.fq", 
-            f"{sample}_1.fq", f"{sample}_R1.fq",
-            f"{sample}_1.fa", f"{sample}_R1.fa",
-            f"{sample}_1.fasta", f"{sample}_R1.fasta"
+    def find_read_file(patterns):
+        for pat in patterns:
+            if os.path.isfile(pat):
+                return pat
+        return None
+
+    # collect read lengths
+    results = []
+    if os.path.exists(single_file):
+        with open(single_file) as fh:
+            for line in fh:
+                s = line.strip()
+                if not s: 
+                    continue
+                patterns = [f"{s}_val.fq", f"{s}.fq", f"{s}.fa", f"{s}.fasta"]
+                fq = find_read_file(patterns)
+                results.append((get_read_length(fq) if fq else "NF", s))
+    if os.path.exists(paired_file):
+        with open(paired_file) as fh:
+            for line in fh:
+                s = line.strip()
+                if not s: 
+                    continue
+                patterns = [f"{s}_1_val_1.fq", f"{s}_1.fq", f"{s}_R1.fq"]
+                r1 = find_read_file(patterns)
+                results.append((get_read_length(r1) if r1 else "NF", s))
+
+    # write reads.tsv
+    with open(reads_tsv, "w") as out:
+        out.write("Total_Mapped_Reads\tsample\n")
+        for rl, s in results:
+            out.write(f"{rl}\t{s}\n")
+    print(f"Saved read lengths to {reads_tsv}")
+
+    # run STAR-Fusion if FASTQs found and genome lib present
+    # This block mimics the original script but is optional and user must have STAR-Fusion installed.
+    if GENOME_LIB_DIR and (os.path.exists(paired_file) or os.path.exists(single_file)):
+        ensure_dir("pe_output"); ensure_dir("se_output")
+        # paired
+        if os.path.exists(paired_file):
+            with open(paired_file) as fh:
+                for line in fh:
+                    s = line.strip()
+                    if not s: continue
+                    r1 = find_read_file([f"{s}_1_val_1.fq", f"{s}_1.fq", f"{s}_R1.fq"])
+                    r2 = find_read_file([f"{s}_2_val_2.fq", f"{s}_2.fq", f"{s}_R2.fq"])
+                    if not r1 or not r2:
+                        print(f"Skipping paired sample {s}: missing R1/R2")
+                        continue
+                    outdir = os.path.join("pe_output", s)
+                    ensure_dir(outdir)
+                    print(f"Running STAR-Fusion for paired sample {s} → {outdir}")
+                    subprocess.run([
+                        "STAR-Fusion", "--left_fq", r1, "--right_fq", r2,
+                        "--genome_lib_dir", GENOME_LIB_DIR, "-O", outdir, "--CPU", "4",
+                        "--examine_coding_effect"
+                    ])
+        # single
+        if os.path.exists(single_file):
+            with open(single_file) as fh:
+                for line in fh:
+                    s = line.strip()
+                    if not s: continue
+                    fq = find_read_file([f"{s}_val.fq", f"{s}.fq"])
+                    if not fq:
+                        print(f"Skipping single sample {s}: missing fq")
+                        continue
+                    outdir = os.path.join("se_output", s)
+                    ensure_dir(outdir)
+                    print(f"Running STAR-Fusion for single sample {s} → {outdir}")
+                    subprocess.run([
+                        "STAR-Fusion", "--left_fq", fq, "--genome_lib_dir", GENOME_LIB_DIR,
+                        "-O", outdir, "--CPU", "4", "--examine_coding_effect"
+                    ])
+
+    # collect STAR-Fusion outputs into Fusion_output and create merged_df as earlier
+    src_dirs = ['se_output', 'pe_output']
+    dest_dir = out_root
+    ensure_dir(dest_dir)
+    for src in src_dirs:
+        if not os.path.exists(src):
+            continue
+        for sub in os.listdir(src):
+            sp = os.path.join(src, sub)
+            dp = os.path.join(dest_dir, sub)
+            if os.path.isdir(sp):
+                if os.path.exists(dp):
+                    shutil.rmtree(dp)
+                shutil.move(sp, dp)
+
+    # run the merging of star-fusion outputs into 1_initial_merged_predictions.tsv
+    fusion_root = os.path.abspath(out_root)
+    dataframes = []
+    for name in os.listdir(fusion_root):
+        d = os.path.join(fusion_root, name)
+        if os.path.isdir(d):
+            tsv = os.path.join(d, "star-fusion.fusion_predictions.abridged.coding_effect.tsv")
+            if os.path.exists(tsv):
+                df = pd.read_csv(tsv, sep="\t", engine="python", dtype=str)
+                df.insert(0, "Sample_ID", name)
+                dataframes.append(df)
+    if dataframes:
+        merged_df = pd.concat(dataframes, ignore_index=True)
+
+        # cleanup like original script
+        to_drop = [
+            "est_J","est_S","SpliceType","LargeAnchorSupport","LeftBreakEntropy",
+            "RightBreakEntropy","annots","CDS_LEFT_RANGE","CDS_RIGHT_RANGE",
+            "FUSION_MODEL","FUSION_CDS","FUSION_TRANSL","PFAM_LEFT","PFAM_RIGHT"
         ]
-        fq_file = find_read_file(patterns)
-        
-        if fq_file:
-            read_len = get_read_length(fq_file)
-        else:
-            read_len = "File not found"
-        results.append((read_len, sample))
+        merged_df = merged_df.drop(
+            [c for c in to_drop if c in merged_df.columns],
+            axis=1,
+            errors='ignore'
+        )
 
-# Write output
-with open(output_file, "w") as out:
-    out.write("Total_Mapped_Reads\tsample\n")
-    for read_len, sample in results:
-        out.write(f"{read_len}\t{sample}\n")
+        # process breakpoints
+        if 'LeftBreakpoint' in merged_df.columns and 'RightBreakpoint' in merged_df.columns:
+            merged_df[['Chromosome1','LeftBreakpoint_Pos','LeftStrand']] = \
+                merged_df['LeftBreakpoint'].astype(str).str.split(':', expand=True)
+            merged_df[['Chromosome2','RightBreakpoint_Pos','RightStrand']] = \
+                merged_df['RightBreakpoint'].astype(str).str.split(':', expand=True)
+            merged_df = merged_df.drop(
+                ['LeftBreakpoint','RightBreakpoint'],
+                axis=1,
+                errors='ignore'
+            )
 
-print(f"✅ Read lengths saved to {output_file}")
+        # Left/Right gene extraction
+        if 'LeftGene' in merged_df.columns:
+            merged_df["LeftGene"] = merged_df["LeftGene"].astype(str).str.extract(r"([^:^]+)$")
+        if 'RightGene' in merged_df.columns:
+            merged_df["RightGene"] = merged_df["RightGene"].astype(str).str.extract(r"([^:^]+)$")
 
+        if '#FusionName' in merged_df.columns:
+            merged_df['#FusionName'] = merged_df['#FusionName'].astype(str).str.replace('--','->', regex=False)
 
-###### STAR FUSION  ####
+        # splice site column
+        if 'LeftBreakDinuc' in merged_df.columns and 'RightBreakDinuc' in merged_df.columns:
+            merged_df['Splice_Site'] = (
+                merged_df['LeftBreakDinuc'].astype(str) + '-' +
+                merged_df['RightBreakDinuc'].astype(str)
+            )
+            merged_df = merged_df.drop(
+                ['LeftBreakDinuc','RightBreakDinuc'],
+                axis=1,
+                errors='ignore'
+            )
 
-# Load sample lists
-with open("paired.txt") as f:
-    paired_samples = {line.strip() for line in f if line.strip()}
+        # **Normalize Splice_Site to uppercase**
+        if 'Splice_Site' in merged_df.columns:
+            merged_df['Splice_Site'] = merged_df['Splice_Site'].astype(str).str.upper()
 
-with open("single.txt") as f:
-    single_samples = {line.strip() for line in f if line.strip()}
+        # standardize fusion type
+        if 'PROT_FUSION_TYPE' in merged_df.columns:
+            merged_df['PROT_FUSION_TYPE'] = merged_df['PROT_FUSION_TYPE'].replace(
+                {'INFRAME':'InFrame','FRAMESHIFT':'FrameShift','.':'NF'}
+            )
 
-# Output directories
-PE_OUTPUT_DIR = "pe_output"
-SE_OUTPUT_DIR = "se_output"
-os.makedirs(PE_OUTPUT_DIR, exist_ok=True)
-os.makedirs(SE_OUTPUT_DIR, exist_ok=True)
+        # rename
+        renamed = {}
+        if 'LeftGene' in merged_df.columns:
+            renamed['LeftGene'] = '5_geneid'
+        if 'RightGene' in merged_df.columns:
+            renamed['RightGene'] = '3_geneid'
+        if 'PROT_FUSION_TYPE' in merged_df.columns:
+            renamed['PROT_FUSION_TYPE'] = 'Splice_Pattern'
+        if 'RightBreakpoint_Pos' in merged_df.columns:
+            renamed['RightBreakpoint_Pos'] = 'RightBreakpoint'
+        if 'LeftBreakpoint_Pos' in merged_df.columns:
+            renamed['LeftBreakpoint_Pos'] = 'LeftBreakpoint'
+        merged_df = merged_df.rename(columns=renamed)
 
-# Run Paired-end STAR-Fusion
-for sample in paired_samples:
-    # MODIFIED: Find R1 file
-    r1_patterns = [
-        f"{sample}_1_val_1.fq", 
-        f"{sample}_1.fq", f"{sample}_R1.fq",
-        f"{sample}_1.fa", f"{sample}_R1.fa",
-        f"{sample}_1.fasta", f"{sample}_R1.fasta"
-    ]
-    r1 = find_read_file(r1_patterns)
-    
-    # MODIFIED: Find R2 file
-    r2_patterns = [
-        f"{sample}_2_val_2.fq", 
-        f"{sample}_2.fq", f"{sample}_R2.fq",
-        f"{sample}_2.fa", f"{sample}_R2.fa",
-        f"{sample}_2.fasta", f"{sample}_R2.fasta"
-    ]
-    r2 = find_read_file(r2_patterns)
+        # compute counts if present
+        if 'JunctionReadCount' in merged_df.columns and 'SpanningFragCount' in merged_df.columns:
+            merged_df['Total_Count_(SC+RC)'] = (
+                merged_df['JunctionReadCount'].astype(float).fillna(0) +
+                merged_df['SpanningFragCount'].astype(float).fillna(0)
+            )
+            merged_df = merged_df.drop(
+                ['JunctionReadCount','SpanningFragCount'],
+                axis=1,
+                errors='ignore'
+            )
 
-    if not r1 or not r2: # MODIFIED
-        print(f"❌ Skipping {sample} (paired): missing file(s)")
-        continue
+        # splice pattern class (using normalized, upper-case Splice_Site)
+        canonical_sites = {'GT-AG', 'GC-AG', 'AT-AC'}
+        if 'Splice_Site' in merged_df.columns:
+            merged_df['Splice_Pattern_Class'] = merged_df['Splice_Site'].apply(
+                lambda x: 'CanonicalPattern' if x in canonical_sites else 'NonCanonicalPattern'
+            )
 
-    output_dir = os.path.join(PE_OUTPUT_DIR, sample)
-    os.makedirs(output_dir, exist_ok=True)
+        # save
+        outpath = os.path.join(fusion_root, "1_initial_merged_predictions.tsv")
+        merged_df.to_csv(outpath, sep="\t", index=False)
+        print(f"Created {outpath}")
+    else:
+        print("No STAR-Fusion outputs found to merge.")
 
-    print(f"🔄 Running PE STAR-Fusion for sample: {sample}")
-    subprocess.run([
-        "STAR-Fusion",
-        "--left_fq", r1,
-        "--right_fq", r2,
-        "--genome_lib_dir", GENOME_LIB_DIR,
-        "-O", output_dir,
-        "--CPU", "20",
-        #"--FusionInspector", "validate",
-        "--examine_coding_effect",
-        #"--denovo_reconstruct"
-    ])
+# -------------------------
+# STEP 2: Process GTF to extract longest transcript per gene
+# -------------------------
+def step2_process_gtf(gtf_file: str):
+    cols = ["seqname","source","feature","start","end","score","strand","frame","attribute"]
+    print(f"Parsing GTF (exons) from {gtf_file} ...")
+    gtf_df = pd.read_csv(gtf_file, sep="\t", comment="#", names=cols, dtype=str)
+    gtf_df = gtf_df[gtf_df["feature"] == "exon"]
+    gtf_df["gene_id"] = gtf_df["attribute"].str.extract(r'gene_id "([^"]+)"')
+    gtf_df["transcript_id"] = gtf_df["attribute"].str.extract(r'transcript_id "([^"]+)"')
+    gtf_df["exon_number"] = gtf_df["attribute"].str.extract(r'exon_number "(\d+)"').astype(float)
+    max_exon_per_gene = gtf_df.groupby("gene_id")["exon_number"].max().reset_index()
+    result = gtf_df.merge(max_exon_per_gene, on=["gene_id","exon_number"], how="inner")
+    result = result[["gene_id","transcript_id","exon_number"]].drop_duplicates()
+    result.to_csv("2_filtered_gtf.tsv", sep="\t", index=False, header=["Gene_ID","Transcript_ID","Exon_Count"])
+    print("Saved 2_filtered_gtf.tsv")
 
-# Run Single-end STAR-Fusion
-for sample in single_samples:
-    # MODIFIED: Find single-end file
-    patterns = [f"{sample}_val.fq", f"{sample}.fq", f"{sample}.fa", f"{sample}.fasta"]
-    fq = find_read_file(patterns)
+# -------------------------
+# STEP 3: Fill missing transcript IDs (expects 1_initial_merged_predictions.tsv)
+# -------------------------
+def step3_fill_transcripts(merged_path: str):
+    print(f"Loading merged predictions from {merged_path}")
+    fusion_df = pd.read_csv(merged_path, sep="\t", dtype=str)
+    filtered_gtf = pd.read_csv("2_filtered_gtf.tsv", sep="\t", dtype=str)
+    gene_to_transcripts = filtered_gtf.groupby("Gene_ID")["Transcript_ID"].apply(list).to_dict()
 
-    if not fq: # MODIFIED
-        print(f"❌ Skipping {sample} (single): missing file")
-        continue
+    def fill_transcript_ids(row):
+        left_transcripts = gene_to_transcripts.get(row.get("5_geneid"), ["."]) if str(row.get("CDS_LEFT_ID",".")) == "." else [row.get("CDS_LEFT_ID")]
+        right_transcripts = gene_to_transcripts.get(row.get("3_geneid"), ["."]) if str(row.get("CDS_RIGHT_ID",".")) == "." else [row.get("CDS_RIGHT_ID")]
+        out = []
+        for L in left_transcripts:
+            for R in right_transcripts:
+                nr = row.copy()
+                nr["CDS_LEFT_ID"] = L
+                nr["CDS_RIGHT_ID"] = R
+                out.append(nr)
+        return out
 
-    output_dir = os.path.join(SE_OUTPUT_DIR, sample)
-    os.makedirs(output_dir, exist_ok=True)
+    expanded = fusion_df.apply(fill_transcript_ids, axis=1)
+    expanded_df = pd.DataFrame([x for sub in expanded for x in sub])
+    # strip 'transcript:' prefix if present
+    for col in ["CDS_LEFT_ID","CDS_RIGHT_ID"]:
+        if col in expanded_df.columns:
+            expanded_df[col] = expanded_df[col].astype(str).str.replace("transcript:","",regex=False)
+    expanded_df.to_csv("3_merged_filled.tsv", sep="\t", index=False)
+    print("Saved 3_merged_filled.tsv")
 
-    print(f"🔄 Running SE STAR-Fusion for sample: {sample}")
-    subprocess.run([
-        "STAR-Fusion",
-        "--left_fq", fq,
-        "--genome_lib_dir", GENOME_LIB_DIR,
-        "--CPU", "20",
-        "-O", output_dir,
-        "--examine_coding_effect",
-        #"--denovo_reconstruct"
-    ])
-
-print("STAR-Fusion completed for all samples.")
-
-
-# --------------------------- PART 1: Process Star-Fusion outputs --------------------------- #
-print("Process Star-Fusion outputs")
-
-# Define source and destination directories
-src_dirs = ['se_output', 'pe_output']
-dest_dir = 'Fusion_output'
-
-# Create the destination directory if it doesn't exist
-os.makedirs(dest_dir, exist_ok=True)
-
-# Loop through both source directories
-for src in src_dirs:
-    if not os.path.exists(src):
-        print(f"Source directory not found: {src}")
-        continue
-
-    for subdir in os.listdir(src):
-        src_path = os.path.join(src, subdir)
-        dest_path = os.path.join(dest_dir, subdir)
-
-        if os.path.isdir(src_path):
-            print(f"Moving {src_path} → {dest_path}")
-            shutil.move(src_path, dest_path)
-        else:
-            print(f"Skipping non-directory: {src_path}")
-
-# Change working directory to Fusion_output/
-fusion_dir = os.path.join(os.getcwd(), "Fusion_output")
-os.chdir(fusion_dir)
-
-print(f"Working directory set to: {os.getcwd()}")
-
-# Process Star-Fusion files
-current_dir = os.getcwd()
-dataframes = []
-
-for dir_name in os.listdir(current_dir):
-    dir_path = os.path.join(current_dir, dir_name)
-    if os.path.isdir(dir_path):
-        input_file_path = os.path.join(dir_path, "star-fusion.fusion_predictions.abridged.coding_effect.tsv")
-        output_file_path = os.path.join(dir_path, "updated_star-fusion.fusion_predictions.abridged.coding_effect.tsv")
-
-        if os.path.exists(input_file_path):
-            df = pd.read_csv(input_file_path, sep="\t", engine="python")
-            df.insert(0, "Sample_ID", dir_name)
-            df.to_csv(output_file_path, sep="\t", index=False)
-            print(f"Updated file created: {output_file_path}")
-            dataframes.append(df)
-        else:
-            print(f"File not found: {input_file_path}")
-
-if dataframes:
-    merged_df = pd.concat(dataframes, ignore_index=True)
-    
-    # Clean and process the merged dataframe
-    columns_to_remove = [
-        "est_J", "est_S", "SpliceType", "LargeAnchorSupport", "LeftBreakEntropy",
-        "RightBreakEntropy", "annots", "CDS_LEFT_RANGE", "CDS_RIGHT_RANGE", "FUSION_MODEL",
-        "FUSION_CDS", "FUSION_TRANSL", "PFAM_LEFT", "PFAM_RIGHT"
-    ]
-    merged_df = merged_df.drop([col for col in columns_to_remove if col in merged_df.columns], axis=1, errors='ignore')
-    
-    # Process breakpoints and genes
-    merged_df[['Chromosome1', 'LeftBreakpoint_Pos', 'LeftStrand']] = merged_df['LeftBreakpoint'].str.split(':', expand=True)
-    merged_df[['Chromosome2', 'RightBreakpoint_Pos', 'RightStrand']] = merged_df['RightBreakpoint'].str.split(':', expand=True)
-    merged_df = merged_df.drop(['LeftBreakpoint', 'RightBreakpoint'], axis=1)
-    merged_df["LeftGene"] = merged_df["LeftGene"].str.extract(r"([^:^]+)$")
-    merged_df["RightGene"] = merged_df["RightGene"].str.extract(r"([^:^]+)$")
-    
-    if '#FusionName' in merged_df.columns:
-        merged_df['#FusionName'] = merged_df['#FusionName'].str.replace('--', '->', regex=False)
-    
-    merged_df['Splice_Site'] = merged_df['LeftBreakDinuc'] + '-' + merged_df['RightBreakDinuc']
-    merged_df = merged_df.drop(['LeftBreakDinuc', 'RightBreakDinuc'], axis=1)
-    
-    # ADDED: Standardize fusion type labels before renaming column
-    if 'PROT_FUSION_TYPE' in merged_df.columns:
-        merged_df['PROT_FUSION_TYPE'] = merged_df['PROT_FUSION_TYPE'].replace({
-            'INFRAME': 'InFrame',
-            'FRAMESHIFT': 'FrameShift',
-            '.': 'NF'
-        })
-    
-    merged_df.rename(columns={
-        'LeftGene': '5_geneid',
-        'RightGene': '3_geneid',
-        'PROT_FUSION_TYPE': 'Splice_Pattern',
-        'RightBreakpoint_Pos': 'RightBreakpoint',
-        'LeftBreakpoint_Pos': 'LeftBreakpoint'
-    }, inplace=True)
-    
-    merged_df['Total_Count_(SC+RC)'] = merged_df['JunctionReadCount'] + merged_df['SpanningFragCount']
-    merged_df = merged_df.drop(['JunctionReadCount', 'SpanningFragCount'], axis=1)
-
-    if 'Splice_Site' in merged_df.columns:
-        merged_df['Splice_Site'] = merged_df['Splice_Site'].astype(str).str.upper()
-    
-    # MODIFIED: Update splice pattern classification based on new rules
-    canonical_sites = {'GT-AG', 'GC-AG', 'AT-AC'}
-    merged_df['Splice_Pattern_Class'] = merged_df['Splice_Site'].apply(
-        lambda x: 'CanonicalPattern' if x in canonical_sites else 'NonCanonicalPattern'
-    )
-    
-    merged_output_path = os.path.join(current_dir, "1_initial_merged_predictions.tsv")
-    merged_df.to_csv(merged_output_path, sep="\t", index=False)
-    print(f"Initial merged file created: {merged_output_path}")
-
-# --------------------------- PART 2: Process GTF to extract longest transcript per gene --------------------------- #
-#gtf_file = "Arabidopsis_thaliana.TAIR10.51.gtf"
-columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
-
-gtf_df = pd.read_csv(gtf_file, sep="\t", comment="#", names=columns, dtype=str)
-gtf_df = gtf_df[gtf_df["feature"] == "exon"]
-
-gtf_df["gene_id"] = gtf_df["attribute"].str.extract(r'gene_id "([^"]+)"')
-gtf_df["transcript_id"] = gtf_df["attribute"].str.extract(r'transcript_id "([^"]+)"')
-gtf_df["exon_number"] = gtf_df["attribute"].str.extract(r'exon_number "(\d+)"').astype(float)
-
-max_exon_per_gene = gtf_df.groupby("gene_id")["exon_number"].max().reset_index()
-result = gtf_df.merge(max_exon_per_gene, on=["gene_id", "exon_number"], how="inner")
-result = result[["gene_id", "transcript_id", "exon_number"]].drop_duplicates()
-
-output_file = "2_filtered_gtf.tsv"
-result.to_csv(output_file, sep="\t", index=False, header=["Gene_ID", "Transcript_ID", "Exon_Count"])
-print(f"Filtered GTF saved as {output_file}")
-
-# --------------------------- PART 3: Fill missing transcript IDs --------------------------- #
-fusion_df = pd.read_csv("1_initial_merged_predictions.tsv", sep="\t")
-filtered_gtf = pd.read_csv("2_filtered_gtf.tsv", sep="\t")
-
-gene_to_transcripts = filtered_gtf.groupby("Gene_ID")["Transcript_ID"].apply(list).to_dict()
-
-def fill_transcript_ids(row):
-    left_transcripts = gene_to_transcripts.get(row["5_geneid"], ["."]) if row["CDS_LEFT_ID"] == "." else [row["CDS_LEFT_ID"]]
-    right_transcripts = gene_to_transcripts.get(row["3_geneid"], ["."]) if row["CDS_RIGHT_ID"] == "." else [row["CDS_RIGHT_ID"]]
-    
-    expanded_rows = []
-    for left in left_transcripts:
-        for right in right_transcripts:
-            new_row = row.copy()
-            new_row["CDS_LEFT_ID"] = left
-            new_row["CDS_RIGHT_ID"] = right
-            expanded_rows.append(new_row)
-    return expanded_rows
-
-expanded_data = fusion_df.apply(fill_transcript_ids, axis=1)
-expanded_df = pd.DataFrame([item for sublist in expanded_data for item in sublist])
-
-expanded_df["CDS_LEFT_ID"] = expanded_df["CDS_LEFT_ID"].str.replace("transcript:", "", regex=False)
-expanded_df["CDS_RIGHT_ID"] = expanded_df["CDS_RIGHT_ID"].str.replace("transcript:", "", regex=False)
-
-expanded_df.to_csv("3_merged_filled.tsv", sep="\t", index=False)
-print("Temporary expanded DataFrame saved as '3_merged_filled.tsv'.")
-
-# --------------------------- PART 4: Add exon information --------------------------- #
-def parse_gtf(gtf_file):
-    exon_map = {}
-    with open(gtf_file, 'r') as f:
-        for line in f:
-            if line.startswith("#"):
-                continue
-            cols = line.strip().split("\t")
-            if cols[2] == "exon":
+# -------------------------
+# STEP 4: Add exon information (per-transcript exon coordinates)
+# -------------------------
+def step4_add_exons(gtf_file: str):
+    def parse_gtf_to_exons(gtf):
+        exon_map = {}
+        with open(gtf) as fh:
+            for ln in fh:
+                if ln.startswith("#"): 
+                    continue
+                cols = ln.strip().split("\t")
+                if len(cols) < 9: 
+                    continue
+                if cols[2] != "exon": 
+                    continue
                 chrom = cols[0]
                 start = int(cols[3])
                 end = int(cols[4])
                 strand = cols[6]
-                attr = cols[8]
-                transcript_match = re.search(r'transcript_id "([^"]+)"', attr)
-                exon_num_match = re.search(r'exon_number "([^"]+)"', attr)
-                if transcript_match and exon_num_match:
-                    transcript_id = transcript_match.group(1)
-                    exon_number = exon_num_match.group(1)
-                    exon_map.setdefault(transcript_id, []).append({
-                        'start': start,
-                        'end': end,
-                        'exon_number': exon_number,
-                        'chrom': chrom,
-                        'strand': strand
-                    })
-    return exon_map
+                attrs = cols[8]
+                tidm = re.search(r'transcript_id "([^"]+)"', attrs)
+                exn = re.search(r'exon_number "([^"]+)"', attrs)
+                if not tidm or not exn: 
+                    continue
+                tid = tidm.group(1)
+                exnum = exn.group(1)
+                exon_map.setdefault(tid, []).append({
+                    "start":start,
+                    "end":end,
+                    "exon_number":exnum,
+                    "chrom":chrom,
+                    "strand":strand
+                })
+        return exon_map
 
-print("Parsing GTF file for exon information...")
-exon_data = parse_gtf(gtf_file)
-print("GTF parsing completed.\n")
+    print(f"Parsing GTF for exon coordinates from {gtf_file} ...")
+    exon_map = parse_gtf_to_exons(gtf_file)
+    df = pd.read_csv("3_merged_filled.tsv", sep="\t", dtype=str)
 
-def find_exon(transcript_id, breakpoint, chrom):
-    exons = exon_data.get(transcript_id, [])
-    for exon in exons:
-        if exon['chrom'] == chrom and exon['start'] <= breakpoint <= exon['end']:
-            return exon['exon_number']
-    return "NF"
+    def find_exon(tid, bp, chrom):
+        if pd.isna(tid) or tid == ".":
+            return "NF"
+        exons = exon_map.get(tid, [])
+        try:
+            bp_int = int(bp)
+        except Exception:
+            return "NF"
+        for e in exons:
+            if e["chrom"] == str(chrom) and e["start"] <= bp_int <= e["end"]:
+                return e["exon_number"]
+        return "NF"
 
-print("Adding exon information to fusion data...")
-expanded_df['Left_Exon'] = expanded_df.apply(
-    lambda row: find_exon(row['CDS_LEFT_ID'], int(row['LeftBreakpoint']), str(row['Chromosome1'])),
-    axis=1
-)
+    df["Left_Exon"] = df.apply(
+        lambda r: find_exon(r.get("CDS_LEFT_ID","."), r.get("LeftBreakpoint",0), r.get("Chromosome1","")),
+        axis=1
+    )
+    df["Right_Exon"] = df.apply(
+        lambda r: find_exon(r.get("CDS_RIGHT_ID","."), r.get("RightBreakpoint",0), r.get("Chromosome2","")),
+        axis=1
+    )
+    df.to_csv("4_final_merged_predictions.tsv", sep="\t", index=False)
+    print("Saved 4_final_merged_predictions.tsv")
+    # remove temporary
+    try:
+        os.remove("3_merged_filled.tsv")
+    except Exception:
+        pass
 
-expanded_df['Right_Exon'] = expanded_df.apply(
-    lambda row: find_exon(row['CDS_RIGHT_ID'], int(row['RightBreakpoint']), str(row['Chromosome2'])),
-    axis=1
-)
+# -------------------------
+# STEP 5: Annotate Fusion Features (chromosome feature, reciprocal, same strand)
+# -------------------------
+def step5_annotate_features():
+    df = pd.read_csv("4_final_merged_predictions.tsv", sep="\t", dtype=str)
+    # chromosome feature
+    df["Chromosome_Feature"] = df.apply(
+        lambda r: "Intrachromosomal" if r.get("Chromosome1") == r.get("Chromosome2") else "Interchromosomal",
+        axis=1
+    )
+    df["Same_Strand"] = df.apply(
+        lambda r: "Yes" if r.get("LeftStrand") == r.get("RightStrand") else "No",
+        axis=1
+    )
+    # reciprocal: collect per-sample set
+    fusion_per_sample = {}
+    for _, r in df.iterrows():
+        s = r.get("Sample_ID","")
+        fn = r.get("#FusionName","")
+        fusion_per_sample.setdefault(s, set()).add(fn)
+    df["Reciprocal_Fusion"] = df.apply(
+        lambda r: "Yes" if "->".join(str(r.get("#FusionName","")).split("->")[::-1]) in fusion_per_sample.get(r.get("Sample_ID",""), set())
+        else "No",
+        axis=1
+    )
+    df.to_csv("5_fusion_annotated.tsv", sep="\t", index=False)
+    print("Saved 5_fusion_annotated.tsv")
 
-final_output_path = os.path.join(current_dir, "4_final_merged_predictions.tsv")
-expanded_df.to_csv(final_output_path, sep="\t", index=False)
-print(f"Final output saved as: {final_output_path}")
+# -------------------------
+# STEP 6: Extract gene-level info from GTF (gene start/end)
+# -------------------------
+def step6_extract_gene_info(gtf_file: str):
+    gene_rows = []
+    with open(gtf_file) as fh:
+        for ln in fh:
+            if ln.startswith("#"): 
+                continue
+            parts = ln.strip().split("\t")
+            if len(parts) != 9: 
+                continue
+            chrom, source, feature, start, end, score, strand, frame, attrs = parts
+            if feature != "gene": 
+                continue
+            ad = {}
+            for a in attrs.split(";"):
+                if not a.strip(): 
+                    continue
+                kv = a.strip().replace('"','').split(" ")
+                if len(kv) >= 2:
+                    ad[kv[0]] = " ".join(kv[1:])
+            gid = ad.get("gene_id","NA")
+            gname = ad.get("gene_name","NA")
+            gene_rows.append([chrom, int(start), int(end), strand, gid, gname])
+    gene_df = pd.DataFrame(gene_rows, columns=["chromosome","start","end","strand","gene_id","gene_name"])
+    gene_df.to_csv("6_gene_info.tsv", sep="\t", index=False)
+    print("Saved 6_gene_info.tsv")
 
-if os.path.exists("3_merged_filled.tsv"):
-    os.remove("3_merged_filled.tsv")
-    print("Temporary file '3_merged_filled.tsv' removed.")
+# -------------------------
+# STEP 7: Merge gene info with fusion data (adds 5_gene_start, 3_gene_start, lengths)
+# -------------------------
+def step7_merge_gene_info():
+    df = pd.read_csv("5_fusion_annotated.tsv", sep="\t", dtype=str)
+    # ensure #FusionName exists and split
+    if "#FusionName" not in df.columns:
+        raise RuntimeError("Missing #FusionName column required to extract 5_geneid and 3_geneid.")
+    df[["5_geneid","3_geneid"]] = df["#FusionName"].astype(str).str.split("->", expand=True)
+    gene_df = pd.read_csv("6_gene_info.tsv", sep="\t", dtype=str)
+    gene_df.rename(columns={"gene_id":"geneid","start":"gene_start","end":"gene_end"}, inplace=True)
+    gene_df["gene_length"] = gene_df["gene_end"].astype(int) - gene_df["gene_start"].astype(int) + 1
+    gene_df = gene_df[["geneid","gene_start","gene_end","gene_length"]]
+    # merge 5'
+    df = df.merge(
+        gene_df,
+        left_on="5_geneid",
+        right_on="geneid",
+        how="left"
+    ).rename(
+        columns={
+            "gene_start":"5_gene_start",
+            "gene_end":"5_gene_end",
+            "gene_length":"5_gene_length"
+        }
+    ).drop(columns=["geneid"])
+    # merge 3'
+    df = df.merge(
+        gene_df,
+        left_on="3_geneid",
+        right_on="geneid",
+        how="left"
+    ).rename(
+        columns={
+            "gene_start":"3_gene_start",
+            "gene_end":"3_gene_end",
+            "gene_length":"3_gene_length"
+        }
+    ).drop(columns=["geneid"])
+    # convert to Int64 where possible
+    for c in ['5_gene_start','5_gene_end','5_gene_length','3_gene_start','3_gene_end','3_gene_length']:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors='coerce').astype('Int64')
+    df.to_csv("7_fusion_with_gene_info.tsv", sep="\t", index=False)
+    print("Saved 7_fusion_with_gene_info.tsv")
 
-print("All processing completed successfully.")
+# -------------------------
+# STEP 8: Count alternate junctions per fusion pair
+# -------------------------
+def step8_count_junctions():
+    df = pd.read_csv("7_fusion_with_gene_info.tsv", sep="\t", dtype=str)
+    df["fusion_pair"] = df["5_geneid"].astype(str) + "->" + df["3_geneid"].astype(str)
+    fusion_counts = df.groupby(["5_geneid","3_geneid"]).apply(
+        lambda x: x[["LeftBreakpoint","RightBreakpoint"]].drop_duplicates().shape[0]
+    ).reset_index(name="alternate_junction_count")
+    df = df.merge(fusion_counts, on=["5_geneid","3_geneid"], how="left")
+    df["alternative_junction"] = df["alternate_junction_count"].apply(
+        lambda x: "Yes" if int(x) > 1 else "No"
+    )
+    df.to_csv("8_fusion_with_junction_counts.tsv", sep="\t", index=False)
+    fusion_counts["formatted"] = (
+        fusion_counts["alternate_junction_count"].astype(str) + " " +
+        fusion_counts["5_geneid"].astype(str) + "->" +
+        fusion_counts["3_geneid"].astype(str)
+    )
+    fusion_counts[["formatted"]].to_csv("9_fusion_counts_formatted.tsv", index=False, header=False)
+    print("Saved 8_fusion_with_junction_counts.tsv and 9_fusion_counts_formatted.tsv")
 
-# --------------------------- PART 5: Annotate Fusion Features --------------------------- #
-df = pd.read_csv("4_final_merged_predictions.tsv", sep="\t")
-
-# Initialize new columns
-chromosome_feature = []
-strand_classification = []
-reciprocal_fusion_detected = []
-fusion_dict = {}
-
-# Step 1: Determine chromosomal/strand relationships & collect fusions
-for _, row in df.iterrows():
-    chromosome_feature.append("Intrachromosomal" if row['Chromosome1'] == row['Chromosome2'] else "Interchromosomal")
-    strand_classification.append("Yes" if row['LeftStrand'] == row['RightStrand'] else "No")
-    
-    sample_id = row['Sample_ID']
-    fusion_gene = row['#FusionName']
-    if sample_id not in fusion_dict:
-        fusion_dict[sample_id] = set()
-    fusion_dict[sample_id].add(fusion_gene)
-
-# Step 2: Check for reciprocal fusion presence
-for _, row in df.iterrows():
-    sample_id = row['Sample_ID']
-    fusion_gene = row['#FusionName']
-    reverse_fusion = "->".join(fusion_gene.split("->")[::-1])
-    reciprocal_fusion_detected.append("Yes" if reverse_fusion in fusion_dict.get(sample_id, set()) else "No")
-
-# Add results to DataFrame
-df['Chromosome_Feature'] = chromosome_feature
-df['Same_Strand'] = strand_classification
-df['Reciprocal_Fusion'] = reciprocal_fusion_detected
-
-df.to_csv("5_fusion_annotated.tsv", sep="\t", index=False)
-print("✅ Step 1: Annotated fusion file saved as '5_fusion_annotated.tsv'")
-
-# --------------------------- PART 6: Extract Gene Info from GTF --------------------------- #
-print("⏳ Extracting gene info from GTF...")
-
-#gtf_file = "../Arabidopsis_thaliana.TAIR10.51.gtf"
-output_file = "6_gene_info.tsv"
-
-gene_data = []
-
-with open(gtf_file, 'r') as f:
-    for line in f:
-        if line.startswith("#"):
-            continue
-        parts = line.strip().split('\t')
-        if len(parts) != 9:
-            continue
-        chrom, source, feature, start, end, score, strand, frame, attributes = parts
-        attr_dict = {}
-        for attr in attributes.split(';'):
-            if attr.strip():
-                key_value = attr.strip().replace('"', '').split(' ')
-                if len(key_value) >= 2:
-                    attr_dict[key_value[0]] = ' '.join(key_value[1:])
-        gene_id = attr_dict.get('gene_id', 'NA')
-        gene_name = attr_dict.get('gene_name', 'NA')
-        transcript_id = attr_dict.get('transcript_id', 'NA')
-
-        if feature == "gene":
-            gene_data.append([chrom, start, end, strand, gene_id, gene_name])
-
-# Save gene-level data
-pd.DataFrame(gene_data, columns=['chromosome', 'start', 'end', 'strand', 'gene_id', 'gene_name']) \
-    .to_csv(output_file, sep='\t', index=False)
-print(f"✅ Step 2: Gene data extracted to {output_file}")
-
-# --------------------------- PART 7: Merge Gene Info with Fusion Data --------------------------- #
-print("⏳ Merging gene info with fusion data...")
-
-temp_df = pd.read_csv("5_fusion_annotated.tsv", sep="\t")
-temp_df[["5_geneid", "3_geneid"]] = temp_df["#FusionName"].str.split("->", expand=True)
-
-gene_info_df = pd.read_csv("6_gene_info.tsv", sep="\t")
-gene_info_df.rename(columns={"gene_id": "geneid", "start": "gene_start", "end": "gene_end"}, inplace=True)
-gene_info_df["gene_length"] = gene_info_df["gene_end"].astype(int) - gene_info_df["gene_start"].astype(int) + 1
-gene_info_df = gene_info_df[["geneid", "gene_start", "gene_end", "gene_length"]]
-
-# Merge to get 5' gene info
-temp_df = temp_df.merge(gene_info_df, left_on="5_geneid", right_on="geneid", how="left")
-temp_df.rename(columns={"gene_start": "5_gene_start", "gene_end": "5_gene_end", "gene_length": "5_gene_length"}, inplace=True)
-temp_df.drop(columns=["geneid"], inplace=True)
-
-# 3' gene
-temp_df = temp_df.merge(gene_info_df, left_on="3_geneid", right_on="geneid", how="left")
-temp_df.rename(columns={"gene_start": "3_gene_start", "gene_end": "3_gene_end", "gene_length": "3_gene_length"}, inplace=True)
-temp_df.drop(columns=["geneid"], inplace=True)
-
-# Convert columns to integers where applicable
-int_columns = ['5_gene_start', '5_gene_end', '5_gene_length', '3_gene_start', '3_gene_end', '3_gene_length']
-temp_df[int_columns] = temp_df[int_columns].astype('Int64')
-
-temp_df.to_csv("7_fusion_with_gene_info.tsv", sep="\t", index=False)
-print("✅ Step 3: Gene start/end/length merged and saved as '7_fusion_with_gene_info.tsv'")
-
-# --------------------------- PART 8: Count Junctions Per Fusion Pair --------------------------- #
-print("⏳ Calculating junction counts...")
-
-df = pd.read_csv("7_fusion_with_gene_info.tsv", sep="\t")
-df["fusion_pair"] = df["5_geneid"].astype(str) + "->" + df["3_geneid"].astype(str)
-
-fusion_counts = df.groupby(["5_geneid", "3_geneid"]).apply(
-    lambda x: x[["LeftBreakpoint", "RightBreakpoint"]].drop_duplicates().shape[0]
-).reset_index(name="alternate_junction_count")
-
-df = df.merge(fusion_counts, how="left", on=["5_geneid", "3_geneid"])
-df["alternative_junction"] = df["alternate_junction_count"].apply(lambda x: "Yes" if x > 1 else "No")
-
-# Save temporary
-df.to_csv("8_fusion_with_junction_counts.tsv", sep="\t", index=False)
-
-# Optional formatted counts
-fusion_counts["formatted"] = fusion_counts["alternate_junction_count"].astype(str) + " " + fusion_counts["5_geneid"].astype(str) + "->" + fusion_counts["3_geneid"].astype(str)
-fusion_counts[["formatted"]].to_csv("9_fusion_counts_formatted.tsv", index=False, header=False)
-
-print(f"✅ Step 4: Junction counts added and saved as '8_fusion_with_junction_counts.tsv'")
-
-# --------------------------- PART 9: Breakpoint Location Classification --------------------------- #
-print("⏳ Classifying breakpoint locations relative to exons...")
-
-def extract_exons(gtf_file):
+# -------------------------
+# STEP 9: Classify breakpoint locations relative to exons
+# -------------------------
+def step9_classify_breakpoint_locations(gtf_file: str):
+    # Build gene->exon lists (start,end)
     exon_map = {}
-    with open(gtf_file, 'r') as f:
-        for line in f:
-            if line.startswith('#'):
+    with open(gtf_file) as fh:
+        for ln in fh:
+            if ln.startswith("#"): 
                 continue
-            parts = line.strip().split('\t')
-            if len(parts) != 9:
+            parts = ln.strip().split("\t")
+            if len(parts) != 9: 
                 continue
-            chrom, _, feature, start, end, _, strand, _, attributes = parts
-            if feature != 'exon':
+            chrom,_,feature,start,end,_,strand,_,attrs = parts
+            if feature != "exon": 
                 continue
-            attr_dict = {}
-            for attr in attributes.split(';'):
-                if attr.strip():
-                    key_value = attr.strip().replace('"', '').split(' ')
-                    if len(key_value) >= 2:
-                        attr_dict[key_value[0]] = ' '.join(key_value[1:])
-            transcript_id = attr_dict.get('transcript_id')
-            gene_id = attr_dict.get('gene_id')
-            if gene_id not in exon_map:
-                exon_map[gene_id] = []
-            exon_map[gene_id].append({"start": int(start), "end": int(end)})
-    return exon_map
+            ad = {}
+            for a in attrs.split(";"):
+                if not a.strip(): 
+                    continue
+                kv = a.strip().replace('"','').split(" ")
+                if len(kv) >= 2:
+                    ad[kv[0]] = " ".join(kv[1:])
+            gid = ad.get("gene_id")
+            if not gid: 
+                continue
+            exon_map.setdefault(gid, []).append({
+                "start":int(start),
+                "end":int(end)
+            })
+    def classify(bp, exons):
+        for e in exons:
+            if bp == e["start"]: 
+                return "S"
+            if bp == e["end"]: 
+                return "E"
+            if e["start"] < bp < e["end"]: 
+                return "M"
+        return "O"
 
-def classify_breakpoint_location(breakpoint, exons):
-    for exon in exons:
-        if breakpoint == exon["start"]:
-            return "S"
-        elif breakpoint == exon["end"]:
-            return "E"
-        elif exon["start"] < breakpoint < exon["end"]:
-            return "M"
-    return "O"
+    df = pd.read_csv("8_fusion_with_junction_counts.tsv", sep="\t", dtype=str)
+    left_loc = []
+    right_loc = []
+    for _, r in df.iterrows():
+        try:
+            lb = int(r.get("LeftBreakpoint",0))
+            rb = int(r.get("RightBreakpoint",0))
+        except Exception:
+            lb = rb = 0
+        left_loc.append(classify(lb, exon_map.get(r.get("5_geneid",""), [])))
+        right_loc.append(classify(rb, exon_map.get(r.get("3_geneid",""), [])))
+    df["5_loc"] = left_loc
+    df["3_loc"] = right_loc
+    df.to_csv("10_fusion_with_breakpoint_locations.tsv", sep="\t", index=False)
+    print("Saved 10_fusion_with_breakpoint_locations.tsv")
 
-# Load exon map
-exon_map = extract_exons(gtf_file)
+# -------------------------
+# STEP 10: Integrate exon count info and finalize
+# -------------------------
+def step10_exon_counts_and_finalize():
+    main_df = pd.read_csv("10_fusion_with_breakpoint_locations.tsv", sep="\t", dtype=str)
+    exon_df = pd.read_csv("2_filtered_gtf.tsv", sep="\t", dtype=str, names=["Gene_ID","Transcript_ID","Exon_Count"])
+    exon_counts = exon_df.groupby("Gene_ID")["Exon_Count"].unique().to_dict()
+    rows = []
+    for _, r in main_df.iterrows():
+        exon5 = exon_counts.get(r.get("5_geneid"), [""])
+        exon3 = exon_counts.get(r.get("3_geneid"), [""])
+        if not exon5: 
+            exon5 = [""]
+        if not exon3: 
+            exon3 = [""]
+        for e5 in exon5:
+            for e3 in exon3:
+                nr = r.copy()
+                try:
+                    nr["exon_count5"] = int(float(e5)) if e5 != "" else ""
+                except Exception:
+                    nr["exon_count5"] = ""
+                try:
+                    nr["exon_count3"] = int(float(e3)) if e3 != "" else ""
+                except Exception:
+                    nr["exon_count3"] = ""
+                rows.append(nr)
+    out = pd.DataFrame(rows)
+    out.to_csv("11_final_fusion_annotated.tsv", sep="\t", index=False)
+    print("Saved 11_final_fusion_annotated.tsv")
 
-# Initialize columns for output
-left_exon_location = []
-right_exon_location = []
+    # compute Total_Mapped_Reads (FFPM->reads)
+    in_f = "11_final_fusion_annotated.tsv"
+    out_f = "12_annotated_with_reads.tsv"
+    with open(in_f) as infile, open(out_f, "w", newline='') as outfile:
+        r = csv.DictReader(infile, delimiter='\t')
+        fieldnames = r.fieldnames + ["Total_Mapped_Reads"]
+        w = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter='\t')
+        w.writeheader()
+        for row in r:
+            ffpm = row.get("FFPM","")
+            total_count = row.get("Total_Count_(SC+RC)","")
+            tm = "NF"
+            if ffpm not in ["","NA","NF"] and total_count not in ["","NA","NF"]:
+                try:
+                    ffpm_v = float(ffpm)
+                    cnt = float(total_count)
+                    if ffpm_v > 0:
+                        tm = int((cnt * 1_000_000) / ffpm_v)
+                except Exception:
+                    tm = "NF"
+            row["Total_Mapped_Reads"] = tm
+            w.writerow(row)
+    print("Saved 12_annotated_with_reads.tsv")
 
-for _, row in df.iterrows():
-    left_bp = row['LeftBreakpoint']
-    right_bp = row['RightBreakpoint']
-    left_gene = row['5_geneid']
-    right_gene = row['3_geneid']
+    # prepare fts_features.csv
+    df = pd.read_csv("12_annotated_with_reads.tsv", sep="\t", dtype=str)
 
-    left_loc = classify_breakpoint_location(left_bp, exon_map.get(left_gene, []))
-    right_loc = classify_breakpoint_location(right_bp, exon_map.get(right_gene, []))
+    # Ensure 3_geneid is present in the final CSV by splitting fusion_pair
+    # Example: fusion_pair = "Os05g0352800->Os05g0333200"
+    #          3_geneid   = "Os05g0333200"
+    if "fusion_pair" in df.columns:
+        df["3_geneid"] = df["fusion_pair"].astype(str).str.split("->").str[-1]
 
-    left_exon_location.append(left_loc)
-    right_exon_location.append(right_loc)
+    # Drop columns we don't want in the final features CSV
+    # (Note: we KEEP 3_geneid now)
+    cols_to_remove = ["#FusionName", "CDS_LEFT_ID", "CDS_RIGHT_ID"]
+    df = df.drop(
+        columns=[c for c in cols_to_remove if c in df.columns],
+        errors='ignore'
+    )
 
-df['5_loc'] = left_exon_location
-df['3_loc'] = right_exon_location
+    df.to_csv("Fusion_output/fts_features.csv", sep=",", index=False)
+    print("Saved fts_features.csv")
 
-df.to_csv("10_fusion_with_breakpoint_locations.tsv", sep='\t', index=False)
+    # move any numeric-prefixed files to temp_dir (original cleanup)
+    temp_dir = "Fusion_output/temp_dir"
+    ensure_dir(temp_dir)
+    for fn in os.listdir("."):
+        if re.match(r"^\d+_.*", fn) and fn != "fts_features.csv":
+            shutil.move(fn, os.path.join(temp_dir, fn))
+    print("Cleanup (temp_dir) done.")
 
-# --------------------------- PART 10: Exon Count Integration --------------------------- #
-print("⏳ Incorporating exon count information...")
+# -------------------------
+# MAIN orchestrator
+# -------------------------
+def main():
+    start = args.start
+    outdir = args.outdir
+    ensure_dir(outdir)
 
-# Load the main data file
-main_df = pd.read_csv("10_fusion_with_breakpoint_locations.tsv", sep="\t")
+    # if start==step1 -> run full STAR-Fusion & merging
+    if start == "step1":
+        if not args.config:
+            raise SystemExit("Error: --config required for step1")
+        step1_run_star_and_merge(args.config, outdir)
+        # after step1 we still need to run subsequent steps, so fallthrough:
+        start = "step2"
 
-# Load the exon count file
-exon_df = pd.read_csv("2_filtered_gtf.tsv", sep="\t", names=["Gene_ID", "Transcript_ID", "Exon_Count"])
+    if start == "step2":
+        if not args.gtf:
+            raise SystemExit("Error: --gtf required for step2")
+        step2_process_gtf(args.gtf)
+        start = "step3"
 
-# Aggregate exon counts for each Gene_ID
-exon_counts = exon_df.groupby("Gene_ID")["Exon_Count"].unique().to_dict()
+    if start == "step3":
+        # For step3 we need the merged file
+        merged_path = args.merged if args.merged else os.path.join(outdir, "1_initial_merged_predictions.tsv")
+        if not os.path.exists(merged_path):
+            raise SystemExit(f"Error: merged file not found at {merged_path}. Provide --merged or run step1.")
+        if not args.gtf:
+            raise SystemExit("Error: --gtf required for exon/gene processing")
 
-# Function to get exon count for a given gene_id
-def get_exon_count(gene_id):
-    return exon_counts.get(gene_id, [])
+        # run part 3..10 in order
+        step3_fill_transcripts(merged_path)
+        step4_add_exons(args.gtf)
+        step5_annotate_features()
+        step6_extract_gene_info(args.gtf)
+        step7_merge_gene_info()
+        step8_count_junctions()
+        step9_classify_breakpoint_locations(args.gtf)
+        step10_exon_counts_and_finalize()
+        print("\nALL DONE: final files produced (11_final_fusion_annotated.tsv, 12_annotated_with_reads.tsv, fts_features.csv)")
 
-# Expand rows if exon counts are non-unique
-data_expanded = []
-for _, row in main_df.iterrows():
-    exon5 = get_exon_count(row["5_geneid"])
-    exon3 = get_exon_count(row["3_geneid"])
-
-    # Handle cases where exon counts might be empty
-    if not exon5: exon5 = [""]
-    if not exon3: exon3 = [""]
-
-    for e5 in exon5:
-        for e3 in exon3:
-            new_row = row.copy()
-            new_row["exon_count5"] = int(float(e5)) if pd.notna(e5) and e5 != "" else ""
-            new_row["exon_count3"] = int(float(e3)) if pd.notna(e3) and e3 != "" else ""
-            data_expanded.append(new_row)
-
-# Convert back to DataFrame
-expanded_df = pd.DataFrame(data_expanded)
-
-# Save the final output
-expanded_df.to_csv("11_final_fusion_annotated.tsv", sep='\t', index=False)
-print("✅ FINAL STEP: Exon count added. Output saved as '11_final_fusion_annotated.tsv'")
-
-
-
-###total mapped reads. 
-input_file = '11_final_fusion_annotated.tsv'
-output_file = '12_annotated_with_reads.tsv'
-
-with open(input_file, 'r') as infile, open(output_file, 'w', newline='') as outfile:
-    reader = csv.DictReader(infile, delimiter='\t')
-    fieldnames = reader.fieldnames + ['Total_Mapped_Reads']
-    writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter='\t')
-    writer.writeheader()
-
-    for row in reader:
-        ffpm = row['FFPM']
-        total_count = row['Total_Count_(SC+RC)']
-
-        if ffpm not in ['NA', 'NF', ''] and total_count not in ['NA', 'NF', '']:
-            try:
-                ffpm_value = float(ffpm)
-                count_value = int(total_count)
-                if ffpm_value > 0:
-                    total_reads = (count_value * 1_000_000) / ffpm_value
-                    row['Total_Mapped_Reads'] = int(total_reads)
-                else:
-                    row['Total_Mapped_Reads'] = 'NF'
-            except ValueError:
-                row['Total_Mapped_Reads'] = 'NF'
-        else:
-            row['Total_Mapped_Reads'] = 'NF'
-
-        writer.writerow(row)
-
-###########################################################
-# MODIFIED SECTION
-###########################################################
-
-###
-input_file = "12_annotated_with_reads.tsv"
-output_file = "fts_features.csv" # MODIFIED: Changed extension to .csv
-
-# Read the input file (still reads the .tsv file)
-df = pd.read_csv(input_file, sep="\t")
-
-# Columns to remove
-columns_to_remove = [
-    "#FusionName",
-    "3_geneid",
-    "CDS_LEFT_ID",
-    "CDS_RIGHT_ID"
-]
-
-# Drop the columns (only if they exist, to avoid errors)
-df = df.drop(columns=[col for col in columns_to_remove if col in df.columns])
-
-# Save to output file (MODIFIED: saves as .csv)
-df.to_csv(output_file, sep=",", index=False)
-
-print(f"Processed file saved as: {output_file}")
-
-##Temp Dir
-output = "fts_features.csv" # MODIFIED: Changed to .csv to protect it from cleanup
-# Temporary directory
-temp_dir = "temp_dir"
-os.makedirs(temp_dir, exist_ok=True)
-
-# Loop through all files in current directory
-for f in os.listdir("."):
-    # Match files that start with number(s) + underscore
-    if re.match(r"^\d+_.*", f) and f != output:
-        shutil.move(f, os.path.join(temp_dir, f))
-        print(f"Moved {f} → {temp_dir}/")
-
-print("Cleanup done.")
+if __name__ == "__main__":
+    main()
