@@ -22,13 +22,13 @@ PFGPred thus provides an end-to-end, accurate, and plant-specific framework for 
 # Installation
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/skbinfo/PFGPred.git
+(pfgpred_env) [sk-202@localhost PFGPred]$ git clone https://github.com/skbinfo/PFGPred.git
 ```
 2. **Create Environment**:
 ```bash
-cd PFGPred
-chmod +x setup_env.sh
-./setup_env.sh
+(pfgpred_env) [sk-202@localhost PFGPred]$ cd PFGPred
+(pfgpred_env) [sk-202@localhost PFGPred]$ chmod +x setup_env.sh
+(pfgpred_env) [sk-202@localhost PFGPred]$ ./setup_env.sh
 ```
 3. **Activate Environment**:
 ```bash
@@ -66,7 +66,7 @@ Each line should contain one sample ID (matching FASTQ file names).
 
 4. **Create Output Directory**
 ```bash
-mkdir Fusion_output
+(pfgpred_env) [sk-202@localhost PFGPred]$ mkdir Fusion_output
 ```
 
 
@@ -75,10 +75,22 @@ mkdir Fusion_output
 Place all input FASTQ files into the directory where ft.py is located.
 Run Feature Extraction
 ```bash
-python ft.py \
---start step1 \
---config config.yaml \
-–gtf path/to/annotation.gtf
+(pfgpred_env) [sk-202@localhost PFGPred]$ python ft.py --help
+usage: ft.py [-h] [--start {step1,step2}] [--config CONFIG] [--merged MERGED] [--gtf GTF] [--outdir OUTDIR]
+
+Fusion pipeline (resumable).
+
+options:
+  -h, --help            show this help message and exit
+  --start {step1,step2}
+                        Which step to start from. step1 runs everything (including STAR-Fusion). step2 runs GTF processing & downstream.
+  --config CONFIG       Path to config.yaml (required for step1)
+  --merged MERGED       Path to 1_initial_merged_predictions.tsv (required for step3)
+  --gtf GTF             Path to genome GTF (required for step1/2)
+  --outdir OUTDIR       Output directory
+
+
+
 ```
 
 This step:
@@ -166,9 +178,39 @@ Prepare the fusion caller output in the following format. If any field is missin
 -**Copy your fusion caller output into the Fusion_output directory and rename the file to 1_initial_merged_predictions.tsv**
 -**Run the feature extraction script:**
 ```bash
- python3 ft.py \
-    --start step2 \
-   --gtf path/to/annotation.gtf
+(pfgpred_env) [sk-202@localhost PFGPred]$ python ft.py --help
+usage: ft.py [-h] [--start {step1,step2}] [--config CONFIG] [--merged MERGED] [--gtf GTF] [--outdir OUTDIR]
+
+Fusion pipeline (resumable).
+
+options:
+  -h, --help            show this help message and exit
+  --start {step1,step2}
+                        Which step to start from. step1 runs everything (including STAR-Fusion). step2 runs GTF processing & downstream.
+  --config CONFIG       Path to config.yaml (required for step1)
+  --merged MERGED       Path to 1_initial_merged_predictions.tsv (required for step3)
+  --gtf GTF             Path to genome GTF (required for step1/2)
+  --outdir OUTDIR       Output directory
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ python ft.py --start step2 --gtf Oryza_sativa.IRGSP-1.0.56.gtf
+Parsing GTF (exons) from Oryza_sativa.IRGSP-1.0.56.gtf ...
+Saved 2_filtered_gtf.tsv
+Loading merged predictions from Fusion_output/1_initial_merged_predictions.tsv
+Saved 3_merged_filled.tsv
+Parsing GTF for exon coordinates from Oryza_sativa.IRGSP-1.0.56.gtf ...
+Saved 4_final_merged_predictions.tsv
+Saved 5_fusion_annotated.tsv
+Saved 6_gene_info.tsv
+Saved 7_fusion_with_gene_info.tsv
+/home/sk-202/sakshi/try/PFGPred/ft.py:502: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  fusion_counts = df.groupby(["5_geneid","3_geneid"]).apply(
+Saved 8_fusion_with_junction_counts.tsv and 9_fusion_counts_formatted.tsv
+Saved 10_fusion_with_breakpoint_locations.tsv
+Saved 11_final_fusion_annotated.tsv
+Saved 12_annotated_with_reads.tsv
+Saved fts_features.csv
+Cleanup (temp_dir) done.
+
 ```
 
 3. **Run the Prediction Model**
@@ -210,10 +252,10 @@ If you want to retrain PFGPred for a new plant species:
    
 Run the standard extraction step:
 ```bash
-python ft.py \
- --start step1 \
---config config.yaml \
---gtf path/to/annotation.gtf
+(pfgpred_env) [sk-202@localhost PFGPred]$ python ft.py --start step1 --config config.yaml --gtf Oryza_sativa.IRGSP-1.0.56.gtf
+Saved read lengths to Fusion_output/reads.tsv
+....................................................
+ALL DONE: final files produced (11_final_fusion_annotated.tsv, 12_annotated_with_reads.tsv, fts_features.csv)
 ```
 This step will generate the fts_features.csv file.
 
@@ -235,14 +277,92 @@ This step produces a set of WGS-validated (true) fusion genes. This step will ge
 To construct the training dataset, run:
 
 ```bash
-python dataset.py \
- --summary fusion_summary_table_breakpoint_supporting_reads.txt\
- --annot new_fusion_search_table.txt\
- --feat features.csv/
+(pfgpred_env) [sk-202@localhost PFGPred]$ python segregate.py --help
+usage: segregate.py [-h] --summary SUMMARY --annot ANNOT --feat FEAT
+
+Fusion processing pipeline (produce final merged CSV with labels)
+
+options:
+  -h, --help         show this help message and exit
+  --summary SUMMARY  fusion_summary_table_breakpoint_supporting_reads.txt
+  --annot ANNOT      new_fusion_search_table.txt
+  --feat FEAT        fts_features.csv
+(pfgpred_env) [sk-202@localhost PFGPred]$ python segregate.py  --summary fusion_summary_table_breakpoint_supporting_reads.txt --annot new_fusion_search_table.txt --feat Fusion_output/fts_features.csv
+STEP 1: Removing duplicates...
+ → unique_fusion_summary.tsv created.
+STEP 2: Formatting to split chr:bpt...
+ → formatted_fusion_summary.tsv created.
+STEP 3: Adding annotations...
+ → formatted_fusion_summary_annotated.tsv created.
+STEP 4: Adding gene start/end...
+ → merged_fusion_with_coords.tsv created.
+STEP 5: Checking overlap...
+ → overlapping_genes.csv and non_overlapping_genes.csv created.
+STEP 6: Matching against feature table and creating final merged CSV with labels...
+Cleaning up intermediary files...
+
+ PIPELINE COMPLETE!
+ → Final merged CSV with labels: final_with_labels.csv
+
 ```
 
 This script generates RNA-Seq fusions supported by WGS as positive (post.tsv) and unsupported as negative (neg.tsv).
 
 4. **Train Your Own Model**
+```bash
+(pfgpred_env) [sk-202@localhost PFGPred]$ python train_PFGPred.py --help
 
-Upload the positive and negative datasets to the web server ***(http://223.31.159.15/PFGPred/train.php)*** to train a custom species-specific model.
+usage: train_PFGPred.py [-h] --train-file TRAIN_FILE --train-target-column TRAIN_TARGET_COLUMN [--test-file TEST_FILE] [--test-target-column TEST_TARGET_COLUMN]
+                        --output-dir OUTPUT_DIR [--split-ratio SPLIT_RATIO] [--xgb-eta XGB_ETA] [--xgb-max-depth XGB_MAX_DEPTH] [--rf-n-estimators RF_N_ESTIMATORS]
+                        [--rf-max-depth RF_MAX_DEPTH] [--lstm-epochs LSTM_EPOCHS] [--lstm-batch-size LSTM_BATCH_SIZE] [--meta-c META_C]
+
+PFGPred Model Training Script
+
+options:
+  -h, --help            show this help message and exit
+  --train-file TRAIN_FILE
+  --train-target-column TRAIN_TARGET_COLUMN
+  --test-file TEST_FILE
+  --test-target-column TEST_TARGET_COLUMN
+  --output-dir OUTPUT_DIR
+  --split-ratio SPLIT_RATIO
+                        Test set ratio if no test file provided.
+  --xgb-eta XGB_ETA
+  --xgb-max-depth XGB_MAX_DEPTH
+  --rf-n-estimators RF_N_ESTIMATORS
+  --rf-max-depth RF_MAX_DEPTH
+  --lstm-epochs LSTM_EPOCHS
+  --lstm-batch-size LSTM_BATCH_SIZE
+  --meta-c META_C
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ python train_PFGPred.py --train-file final_with_labels.csv --train-target-column 'label' --split-ratio 0.2 --output-dir OutFile
+--- Starting PFGPred Training Process ---
+Loaded training data: 10000 rows.
+--- Training Data Sample Counts ---
+label
+1    5000
+0    5000
+
+No test file provided. Splitting training data into 80% training and 20% testing sets.
+
+--- Preprocessing Data... ---
+Preprocessing complete.
+
+--- Saving preprocessing objects for future predictions... ---
+Saved scaler.pkl, splice_site_mapping.pkl, binary_encoders.pkl, and encoded_features.csv
+
+--- Training Base Models... ---
+Base models trained successfully.
+
+--- Training PFGPred Meta-Learner... ---
+Meta-learner trained successfully.
+
+--- Evaluating PFGPred model on test data... ---
+
+--- Generating Output Files... ---
+Saved metrics to OutFile/metrics.csv
+Saved ROC curve data to OutFile/roc_data.csv
+Saved test predictions to OutFile/test_predictions.csv
+
+```
+Or Users can upload the positive and negative datasets to the web server ***(http://223.31.159.15/PFGPred/train.php)*** to train a custom species-specific model.
