@@ -27,12 +27,12 @@ git clone https://github.com/skbinfo/PFGPred.git
 2. **Create Environment**:
 ```bash
 cd PFGPred
-chmod +x setup.sh
-./setup.sh
+chmod +x setup_env.sh
+./setup_env.sh
 ```
 3. **Activate Environment**:
 ```bash
-conda activate PFGPred_env
+conda activate pfgpred_env
 ```
 
 # Running the Pipeline
@@ -93,9 +93,35 @@ This step:
 6. **Run the Prediction Model**
 To classify fusions using the pretrained stacked ensemble model:
 ```bash
+(pfgpred_env) [sk-202@localhost PFGPred]$ python PFGPred.py --help
+usage: PFGPred.py [-h] [--model {All_Plant,Arabidopsis}] [--cutoff CUTOFF] --output-dir OUTPUT_DIR input_file
 
+PFGPred: Plant Fusion Gene Predictor
+
+positional arguments:
+  input_file            Path to the input CSV file for prediction.
+
+options:
+  -h, --help            show this help message and exit
+  --model {All_Plant,Arabidopsis}  The prediction model to use. Defaults to 'All_Plant'.                 
+  --cutoff CUTOFF       Confidence cutoff for positive prediction (0.0 to 1.0). Defaults to 0.9.
+  --output-dir OUTPUT_DIR  The directory where result files will be saved.
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ mkdir OutFile #Output Directory must be pre-existing
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ python PFGPred.py data.csv --model All_Plant --output-dir OutFile
+To enable the following instructions: AVX512F, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+--- Starting Prediction ---
+Input file: data.csv
+Model type: All_Plant
+Confidence cutoff: 0.9
+Output directory: OutFile
+Detailed prediction results saved to 'OutFile/prediction_results.csv'
+Prediction summary saved to 'OutFile/prediction_summary.csv'
+
+--- Prediction Complete ---
 ```
-***Or upload the generated feature table to the PFGPred Web Server (http://223.31.159.15/PFGPred/predict.php) if the number of entries in the file is less than 10000.***
+**Or upload the generated feature table to the PFGPred Web Server (http://223.31.159.15/PFGPred/predict.php) if the number of entries in the file is less than 10000.**
 
 
 The output will provide:
@@ -149,8 +175,31 @@ Prepare the fusion caller output in the following format. If any field is missin
 
 Then upload the generated feature table **(fts_features.csv)** to the **PFGPred Web Server (http://223.31.159.15/PFGPred/predict.php)** or use the following command to classify fusion transcripts using the PFGPred model:
 ```bash
+(pfgpred_env) [sk-202@localhost PFGPred]$ python PFGPred.py --help
+usage: PFGPred.py [-h] [--model {All_Plant,Arabidopsis}] [--cutoff CUTOFF] --output-dir OUTPUT_DIR input_file
 
+PFGPred: Plant Fusion Gene Predictor
 
+positional arguments:
+  input_file            Path to the input CSV file for prediction.
+
+options:
+  -h, --help            show this help message and exit
+  --model {All_Plant,Arabidopsis}  The prediction model to use. Defaults to 'All_Plant'.                 
+  --cutoff CUTOFF       Confidence cutoff for positive prediction (0.0 to 1.0). Defaults to 0.9.
+  --output-dir OUTPUT_DIR  The directory where result files will be saved.
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ mkdir OutFile #Output Directory must be pre-existing
+
+(pfgpred_env) [sk-202@localhost PFGPred]$ python PFGPred.py data.csv --model All_Plant --output-dir OutFile
+To enable the following instructions: AVX512F, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+--- Starting Prediction ---
+Input file: data.csv
+Model type: All_Plant
+Confidence cutoff: 0.9
+Output directory: OutFile
+Detailed prediction results saved to 'OutFile/prediction_results.csv'
+Prediction summary saved to 'OutFile/prediction_summary.csv'
 ```
 
 # Model Retraining Workflow
