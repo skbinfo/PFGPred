@@ -26,9 +26,9 @@ PFGPred thus provides an end-to-end, accurate, and plant-specific framework for 
 ```
 2. **Create Environment**:
 ```bash
-(pfgpred_env) [sk-202@localhost PFGPred]$ cd PFGPred
-(pfgpred_env) [sk-202@localhost PFGPred]$ chmod +x setup_env.sh
-(pfgpred_env) [sk-202@localhost PFGPred]$ ./setup_env.sh
+(base) [sk-202@localhost PFGPred]$ cd PFGPred
+(base) [sk-202@localhost PFGPred]$ chmod +x setup_env.sh
+(base) [sk-202@localhost PFGPred]$ ./setup_env.sh
 ```
 3. **Activate Environment**:
 ```bash
