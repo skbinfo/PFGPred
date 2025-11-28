@@ -11,13 +11,13 @@ PFGPred thus provides an end-to-end, accurate, and plant-specific framework for 
 
 **Key features of PFGPred:**
 
--**Integrating RNA-Seq fusion predictions with machine learning**
+✓ Integrating RNA-Seq fusion predictions with machine learning
 
--**Trained on fusion events validated on WGS datasets**
+✓ Trained on fusion events validated on WGS datasets
 
--**Supports any RNA-Seq fusion caller**
+✓ Supports any RNA-Seq fusion caller
 
--**Allows species-specific retraining**
+✓ Allows species-specific retraining
 
 # Installation
 1. **Clone the repository**:
@@ -95,11 +95,11 @@ options:
 
 This step:
 
--**Processes outputs from fusion callers (Default: STAR-Fusion)**
+✓ Processes outputs from fusion callers (Default: STAR-Fusion)
   
--**Extracts RNA-Seq based features for each fusion transcript**
+✓ Extracts RNA-Seq based features for each fusion transcript
 
--**Generates a feature table compatible with the model**
+✓ Generates a feature table compatible with the model
 
 
 6. **Run the Prediction Model**
@@ -139,15 +139,13 @@ Prediction summary saved to 'OutFile/prediction_summary.csv'
 The output will provide:
 
 
-1.**probability scores**
+✓ probability scores
 
 
-2.**classification labels**
+✓ classification labels
 
 
-
-
-3.**high-confidence filtered fusion list (Default threshold 0.9)**
+✓ high-confidence filtered fusion list (Default threshold 0.9)
 
 
 # Kickstart Mode (Using Outputs from Any Fusion Caller)
@@ -174,9 +172,12 @@ Prepare the fusion caller output in the following format. If any field is missin
 
 2. **To construct a PFGPred-compatible feature table from your fusion caller outputs, follow the steps below:**
    
--**Create an output directory named Fusion_output.** 
--**Copy your fusion caller output into the Fusion_output directory and rename the file to 1_initial_merged_predictions.tsv**
--**Run the feature extraction script:**
+✓ Create an output directory named Fusion_output.
+
+✓ Copy your fusion caller output into the Fusion_output directory and rename the file to 1_initial_merged_predictions.tsv
+
+✓ Run the feature extraction script:
+
 ```bash
 (pfgpred_env) [sk-202@localhost PFGPred]$ python ft.py --help
 usage: ft.py [-h] [--start {step1,step2}] [--config CONFIG] [--merged MERGED] [--gtf GTF] [--outdir OUTDIR]
