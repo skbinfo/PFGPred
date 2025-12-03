@@ -1,0 +1,9 @@
+@HD	VN:1.0	SO:unsorted
+@PG	ID:novoalign	PN:novoalign	VN:V3.09.00	CL:novoalign -f output/softclip_fasta_files/disc_read_cluster_2_1.fa -d output/discordant_read_cluster_sequences/2_1.fa.ndx -r ALL -o SAM -h-1-1 -l6
+@SQ	SN:2_1	LN:652	AS:2_1.fa.ndx
+2_2_1	4	*	0	0	*	*	0	0	CTAAGGCA	*	PG:Z:novoalign	ZS:Z:NM
+2_2_2	16	2_1	503	70	40M	*	0	0	CACAATCACAAAGCCTTGGCCCTGAGCGGAAAGCAACAGA	*	PG:Z:novoalign	AS:i:30	UQ:i:30	NM:i:1	MD:Z:24T15
+@HD	VN:1.0	SO:unsorted
+@PG	ID:novoalign	PN:novoalign	VN:V3.09.00	CL:novoalign -f output/softclip_fasta_files/disc_read_cluster_2_2.fa -d output/discordant_read_cluster_sequences/2_2.fa.ndx -r ALL -o SAM -h-1-1 -l6
+@SQ	SN:2_2	LN:649	AS:2_2.fa.ndx
+2_1_1	4	*	0	0	*	*	0	0	ATGCAGGGACA	*	PG:Z:novoalign	ZS:Z:NM

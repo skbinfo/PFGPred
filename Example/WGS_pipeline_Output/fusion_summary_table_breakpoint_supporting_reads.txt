@@ -1,0 +1,2 @@
+fusion_id	softclip_ID	fiveprime_breakpoint_coordinate	threeprime_breakpoint_coordinate	softclip_sequence
+2	2_2_2	4:13573354	4:13590901	TCTGTTGCTTTCCGCTCAGGGCCAAGGCTTTGTGATTGTG

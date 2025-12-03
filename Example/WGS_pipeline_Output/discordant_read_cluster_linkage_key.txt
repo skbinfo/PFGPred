@@ -1,0 +1,3 @@
+fusion_id	query	disc_read_cluster_id	disc_reads_in_cluster	associated_disc_read_clusters
+2	fiveprime_reads	2_1	1	2_2
+2	threeprime_reads	2_2	1	2_1

@@ -1,0 +1,5 @@
+fusion_id	discordant_read_support	breakpoint_support
+1	FALSE	FALSE
+2	TRUE	TRUE
+3	FALSE	FALSE
+4	FALSE	FALSE
