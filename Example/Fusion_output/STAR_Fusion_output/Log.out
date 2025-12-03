@@ -1,0 +1,147 @@
+STAR version=2.7.11b
+STAR compilation time,server,dir=2025-11-14T12:06:42+0000 :/opt/conda/conda-bld/star_1763121846936/work/source
+##### Command Line:
+/home/sk-202/anaconda3/envs/pfgpred_env/bin/STAR-avx2 --genomeDir /home/sk-202/softwares/STAR-Fusion-v1.10.0/ctat_library/arabidopsis/arabidopsis_lib//ref_genome.fa.star.idx --outReadsUnmapped None --chimSegmentMin 12 --chimJunctionOverhangMin 8 --chimOutJunctionFormat 1 --alignSJDBoverhangMin 10 --alignMatesGapMax 100000 --alignIntronMax 100000 --alignSJstitchMismatchNmax 5 -1 5 5 --runThreadN 4 --outSAMstrandField intronMotif --outSAMunmapped Within --alignInsertionFlush Right --alignSplicedMateMapLminOverLmate 0 --alignSplicedMateMapLmin 30 --outSAMtype BAM Unsorted --readFilesIn /home/sk-202/sakshi/try/PFGPred/SRR3460663.fq --outSAMattrRGline ID:GRPundef --chimMultimapScoreRange 3 --chimScoreJunctionNonGTAG -4 --chimMultimapNmax 20 --chimOutType Junctions WithinBAM --chimNonchimScoreDropMin 10 --peOverlapNbasesMin 12 --peOverlapMMp 0.1 --genomeLoad NoSharedMemory --twopassMode None --quantMode GeneCounts
+##### Initial USER parameters from Command Line:
+###### All USER parameters from Command Line:
+genomeDir                     /home/sk-202/softwares/STAR-Fusion-v1.10.0/ctat_library/arabidopsis/arabidopsis_lib//ref_genome.fa.star.idx     ~RE-DEFINED
+outReadsUnmapped              None     ~RE-DEFINED
+chimSegmentMin                12     ~RE-DEFINED
+chimJunctionOverhangMin       8     ~RE-DEFINED
+chimOutJunctionFormat         1        ~RE-DEFINED
+alignSJDBoverhangMin          10     ~RE-DEFINED
+alignMatesGapMax              100000     ~RE-DEFINED
+alignIntronMax                100000     ~RE-DEFINED
+alignSJstitchMismatchNmax     5   -1   5   5        ~RE-DEFINED
+runThreadN                    4     ~RE-DEFINED
+outSAMstrandField             intronMotif     ~RE-DEFINED
+outSAMunmapped                Within        ~RE-DEFINED
+alignInsertionFlush           Right     ~RE-DEFINED
+alignSplicedMateMapLminOverLmate0     ~RE-DEFINED
+alignSplicedMateMapLmin       30     ~RE-DEFINED
+outSAMtype                    BAM   Unsorted        ~RE-DEFINED
+readFilesIn                   /home/sk-202/sakshi/try/PFGPred/SRR3460663.fq        ~RE-DEFINED
+outSAMattrRGline              ID:GRPundef        ~RE-DEFINED
+chimMultimapScoreRange        3     ~RE-DEFINED
+chimScoreJunctionNonGTAG      -4     ~RE-DEFINED
+chimMultimapNmax              20     ~RE-DEFINED
+chimOutType                   Junctions   WithinBAM        ~RE-DEFINED
+chimNonchimScoreDropMin       10     ~RE-DEFINED
+peOverlapNbasesMin            12     ~RE-DEFINED
+peOverlapMMp                  0.1     ~RE-DEFINED
+genomeLoad                    NoSharedMemory     ~RE-DEFINED
+twopassMode                   None     ~RE-DEFINED
+quantMode                     GeneCounts        ~RE-DEFINED
+##### Finished reading parameters from all sources
+
+##### Final user re-defined parameters-----------------:
+runThreadN                        4
+genomeDir                         /home/sk-202/softwares/STAR-Fusion-v1.10.0/ctat_library/arabidopsis/arabidopsis_lib//ref_genome.fa.star.idx
+genomeLoad                        NoSharedMemory
+readFilesIn                       /home/sk-202/sakshi/try/PFGPred/SRR3460663.fq   
+outReadsUnmapped                  None
+outSAMtype                        BAM   Unsorted   
+outSAMstrandField                 intronMotif
+outSAMunmapped                    Within   
+outSAMattrRGline                  ID:GRPundef   
+alignIntronMax                    100000
+alignMatesGapMax                  100000
+alignSJDBoverhangMin              10
+alignSJstitchMismatchNmax         5   -1   5   5   
+alignSplicedMateMapLmin           30
+alignSplicedMateMapLminOverLmate    0
+alignInsertionFlush               Right
+peOverlapNbasesMin                12
+peOverlapMMp                      0.1
+chimSegmentMin                    12
+chimScoreJunctionNonGTAG          -4
+chimJunctionOverhangMin           8
+chimOutType                       Junctions   WithinBAM   
+chimMultimapNmax                  20
+chimMultimapScoreRange            3
+chimNonchimScoreDropMin           10
+chimOutJunctionFormat             1   
+quantMode                         GeneCounts   
+twopassMode                       None
+
+-------------------------------
+##### Final effective command line:
+/home/sk-202/anaconda3/envs/pfgpred_env/bin/STAR-avx2   --runThreadN 4   --genomeDir /home/sk-202/softwares/STAR-Fusion-v1.10.0/ctat_library/arabidopsis/arabidopsis_lib//ref_genome.fa.star.idx   --genomeLoad NoSharedMemory   --readFilesIn /home/sk-202/sakshi/try/PFGPred/SRR3460663.fq      --outReadsUnmapped None   --outSAMtype BAM   Unsorted      --outSAMstrandField intronMotif   --outSAMunmapped Within      --outSAMattrRGline ID:GRPundef      --alignIntronMax 100000   --alignMatesGapMax 100000   --alignSJDBoverhangMin 10   --alignSJstitchMismatchNmax 5   -1   5   5      --alignSplicedMateMapLmin 30   --alignSplicedMateMapLminOverLmate 0   --alignInsertionFlush Right   --peOverlapNbasesMin 12   --peOverlapMMp 0.1   --chimSegmentMin 12   --chimScoreJunctionNonGTAG -4   --chimJunctionOverhangMin 8   --chimOutType Junctions   WithinBAM      --chimMultimapNmax 20   --chimMultimapScoreRange 3   --chimNonchimScoreDropMin 10   --chimOutJunctionFormat 1      --quantMode GeneCounts      --twopassMode None
+----------------------------------------
+
+Number of fastq files for each mate = 1
+WARNING --outSAMattrRG defines a read group, therefore STAR will output RG attribute
+WARNING --outSAMstrandField=intronMotif, therefore STAR will output XS attribute
+ParametersSolo: --soloCellFilterType CellRanger2.2 filtering parameters:  3000 0.99 10
+Finished loading and checking parameters
+Reading genome generation parameters:
+### STAR   --runMode genomeGenerate      --runThreadN 110   --genomeDir /home/nipgr/software/STAR-Fusion-v1.10.0/ctat_library/new_try/./arabidopsis_lib/ref_genome.fa.star.idx   --genomeFastaFiles /home/nipgr/fusion_benchmarking_tools/reference/arabidospis/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa      --genomeSAindexNbases 12   --genomeChrBinNbits 16   --limitGenomeGenerateRAM 40419136213   --sjdbGTFfile /home/nipgr/fusion_benchmarking_tools/reference/arabidospis/genome_2.gtf   --sjdbOverhang 150
+### GstrandBit=32
+versionGenome                 2.7.4a     ~RE-DEFINED
+genomeType                    Full     ~RE-DEFINED
+genomeFastaFiles              /home/nipgr/fusion_benchmarking_tools/reference/arabidospis/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa        ~RE-DEFINED
+genomeSAindexNbases           12     ~RE-DEFINED
+genomeChrBinNbits             16     ~RE-DEFINED
+genomeSAsparseD               1     ~RE-DEFINED
+genomeTransformType           None     ~RE-DEFINED
+genomeTransformVCF            -     ~RE-DEFINED
+sjdbOverhang                  150     ~RE-DEFINED
+sjdbFileChrStartEnd           -        ~RE-DEFINED
+sjdbGTFfile                   /home/nipgr/fusion_benchmarking_tools/reference/arabidospis/genome_2.gtf     ~RE-DEFINED
+sjdbGTFchrPrefix              -     ~RE-DEFINED
+sjdbGTFfeatureExon            exon     ~RE-DEFINED
+sjdbGTFtagExonParentTranscripttranscript_id     ~RE-DEFINED
+sjdbGTFtagExonParentGene      gene_id     ~RE-DEFINED
+sjdbInsertSave                Basic     ~RE-DEFINED
+genomeFileSizes               159750553   1313681889        ~RE-DEFINED
+Genome version is compatible with current STAR
+Number of real (reference) chromosomes= 7
+1	1	30427671	0
+2	2	19698289	30474240
+3	3	23459830	50200576
+4	4	18585056	73662464
+5	5	26975502	92274688
+6	Mt	366924	119275520
+7	Pt	154478	119668736
+--sjdbOverhang = 150 taken from the generated genome
+Started loading the genome: Mon Dec  1 11:46:32 2025
+
+Genome: size given as a parameter = 159750553
+SA: size given as a parameter = 1313681889
+SAindex: size given as a parameter = 1
+Read from SAindex: pGe.gSAindexNbases=12  nSAi=22369620
+nGenome=159750553;  nSAbyte=1313681889
+GstrandBit=32   SA number of indices=318468336
+Shared memory is not used for genomes. Allocated a private copy of the genome.
+Genome file size: 159750553 bytes; state: good=1 eof=0 fail=0 bad=0
+Loading Genome ... done! state: good=1 eof=0 fail=0 bad=0; loaded 159750553 bytes
+SA file size: 1313681889 bytes; state: good=1 eof=0 fail=0 bad=0
+Loading SA ... done! state: good=1 eof=0 fail=0 bad=0; loaded 1313681889 bytes
+Loading SAindex ... done: 97867203 bytes
+Finished loading the genome: Mon Dec  1 11:46:33 2025
+
+Processing splice junctions database sjdbN=132509,   pGe.sjdbOverhang=150 
+To accommodate alignIntronMax=100000 redefined winBinNbits=15
+To accommodate alignIntronMax=100000 and alignMatesGapMax=100000, redefined winFlankNbins=4 and winAnchorDistNbins=8
+WARNING --chimOutType=WithinBAM, therefore STAR will output NM attribute
+Opening the file: ./_STARtmp//Chimeric.out.junction.thread0 ... ok
+Opening the file: ./_STARtmp//Chimeric.out.junction.thread1 ... ok
+Opening the file: ./_STARtmp//Chimeric.out.junction.thread2 ... ok
+Opening the file: ./_STARtmp//Chimeric.out.junction.thread3 ... ok
+Created thread # 1
+Created thread # 2
+Created thread # 3
+Thread #1 end of input stream, nextChar=-1
+Completed: thread #0
+Completed: thread #3
+Completed: thread #1
+Joined thread # 1
+Completed: thread #2
+Joined thread # 2
+Joined thread # 3
+Dec 01 11:47:12 ..... finished mapping
+RAM after mapping:
+VmPeak:	 2611244 kB; VmSize:	 2599168 kB; VmHWM:	 2364396 kB; VmRSS:	 2355024 kB; 
+RAM after freeing genome index memory:
+VmPeak:	 2611244 kB; VmSize:	 1064688 kB; VmHWM:	 2364396 kB; VmRSS:	  820544 kB; 
+ALL DONE!
