@@ -1,0 +1,5 @@
+fusion_id	sample_id	fiveprimepartner	threeprimepartner	fiveprime_chr	fiveprime_search_start	fiveprime_junction	fiveprime_search_end	fiveprime_strand	threeprime_chr	threeprime_search_start	threeprime_junction	threeprime_search_end	threeprime_strand	path
+1	RNA_seq	AT4G36420	AT1G24240	4	17203010	17203708	17204208	-	1	8586335	8587556	8588056	+	/path/DNA_seq_sorted.bam
+2	RNA_seq	AT4G27040	AT4G27080	4	13572885	13573491	13573991	-	4	13588948	13591228	13591728	+	/path/DNA_seq_sorted.bam
+3	RNA_seq	AT4G02260	AT4G00660	4	987301	987801	991506	+	4	274252	275406	275906	+	/path/DNA_seq_sorted.bam
+4	RNA_seq	AT2G24060	AT1G56350	2	10229506	10230006	10231856	+	1	21094743	21097040	21097540	+	/path/DNA_seq_sorted.bam
