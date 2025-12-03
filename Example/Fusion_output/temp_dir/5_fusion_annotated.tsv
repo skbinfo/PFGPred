@@ -1,0 +1,5 @@
+Sample_ID	#FusionName	5_geneid	3_geneid	FFPM	CDS_LEFT_ID	CDS_RIGHT_ID	Splice_Pattern	Chromosome1	LeftBreakpoint	LeftStrand	Chromosome2	RightBreakpoint	RightStrand	Splice_Site	Total_Count_(SC+RC)	Splice_Pattern_Class	Left_Exon	Right_Exon	Chromosome_Feature	Same_Strand	Reciprocal_Fusion
+SRR3460663	AT4G36420->AT1G24240	AT4G36420	AT1G24240	0.3752	AT4G36420.1	AT1G24240.1	NF	4	17203708	-	1	8587556	+	GT-AG	3.0	CanonicalPattern	1	4	Interchromosomal	No	No
+SRR3460663	AT4G27040->AT4G27080	AT4G27040	AT4G27080	0.5003	AT4G27040.1	AT4G27080.1	InFrame	4	13573491	-	4	13591228	+	GT-AG	2.0	CanonicalPattern	9	7	Intrachromosomal	No	No
+SRR3460663	AT4G02260->AT4G00660	AT4G02260	AT4G00660	0.5003	AT4G02260.1	AT4G00660.1	InFrame	4	987801	+	4	275406	+	GT-AG	2.0	CanonicalPattern	9	3	Intrachromosomal	Yes	No
+SRR3460663	AT2G24060->AT1G56350	AT2G24060	AT1G56350	0.5003	AT2G24060.1	AT1G56350.1	InFrame	2	10230006	+	1	21097040	+	GT-AG	2.0	CanonicalPattern	3	5	Interchromosomal	Yes	No
